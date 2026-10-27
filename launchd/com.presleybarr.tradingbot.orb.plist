@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Starts the ORB day-trading experiment at 8:15 AM Central (= 9:15 AM Eastern)
+  every day. On market days it stays running until 5 minutes before the close;
+  on weekends and holidays it exits right away.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.presleybarr.tradingbot.orb</string>
+
+    <!-- caffeinate keeps the Mac awake for as long as the experiment runs -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/caffeinate</string>
+        <string>-i</string>
+        <string>/Users/presleybarr/trading bot/.venv/bin/python</string>
+        <string>/Users/presleybarr/trading bot/orb_live.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/presleybarr/trading bot</string>
+
+    <key>StartCalendarInterval</key>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>15</integer></dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/presleybarr/trading bot/logs/orb.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/presleybarr/trading bot/logs/orb.err.log</string>
+</dict>
+</plist>

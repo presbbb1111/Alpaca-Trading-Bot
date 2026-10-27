@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trading Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23007aff'/><path d='M7 21l6-6 4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+:root {
+  color-scheme: light;
+  --bg-1: #eef2f9; --bg-2: #f6f1fb;
+  --blob-1: rgba(0, 122, 255, 0.22); --blob-2: rgba(175, 82, 222, 0.18); --blob-3: rgba(48, 176, 199, 0.18);
+  --glass: rgba(255, 255, 255, 0.58); --glass-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.75); --glass-edge: rgba(0, 0, 0, 0.06);
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 40px rgba(31, 38, 64, 0.10);
+  --text-1: #1d1d1f; --text-2: #515154; --text-3: #86868b;
+  --hairline: rgba(0, 0, 0, 0.08); --grid: rgba(0, 0, 0, 0.06);
+  --accent: #007aff; --accent-wash: rgba(0, 122, 255, 0.10);
+  --up: #1f8a3b; --down: #d70015; --up-mark: #34c759; --down-mark: #ff3b30;
+  --warn: #c93400; --warn-mark: #ff9500;
+  --pill-hold: rgba(52, 199, 89, 0.16); --pill-cash: rgba(120, 120, 128, 0.14);
+  --segment: rgba(118, 118, 128, 0.12); --segment-on: rgba(255, 255, 255, 0.95);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg-1: #0b0c10; --bg-2: #14101c;
+    --blob-1: rgba(10, 132, 255, 0.28); --blob-2: rgba(191, 90, 242, 0.20); --blob-3: rgba(64, 200, 224, 0.16);
+    --glass: rgba(36, 36, 40, 0.55); --glass-strong: rgba(44, 44, 48, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.10); --glass-edge: rgba(255, 255, 255, 0.04);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 16px 48px rgba(0, 0, 0, 0.45);
+    --text-1: #f5f5f7; --text-2: #c7c7cc; --text-3: #8e8e93;
+    --hairline: rgba(255, 255, 255, 0.10); --grid: rgba(255, 255, 255, 0.07);
+    --accent: #0a84ff; --accent-wash: rgba(10, 132, 255, 0.16);
+    --up: #30d158; --down: #ff453a; --up-mark: #30d158; --down-mark: #ff453a;
+    --warn: #ff9f0a; --warn-mark: #ff9f0a;
+    --pill-hold: rgba(48, 209, 88, 0.18); --pill-cash: rgba(142, 142, 147, 0.18);
+    --segment: rgba(118, 118, 128, 0.24); --segment-on: rgba(99, 99, 102, 0.9);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-1: #0b0c10; --bg-2: #14101c;
+  --blob-1: rgba(10, 132, 255, 0.28); --blob-2: rgba(191, 90, 242, 0.20); --blob-3: rgba(64, 200, 224, 0.16);
+  --glass: rgba(36, 36, 40, 0.55); --glass-strong: rgba(44, 44, 48, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.10); --glass-edge: rgba(255, 255, 255, 0.04);
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 16px 48px rgba(0, 0, 0, 0.45);
+  --text-1: #f5f5f7; --text-2: #c7c7cc; --text-3: #8e8e93;
+  --hairline: rgba(255, 255, 255, 0.10); --grid: rgba(255, 255, 255, 0.07);
+  --accent: #0a84ff; --accent-wash: rgba(10, 132, 255, 0.16);
+  --up: #30d158; --down: #ff453a; --up-mark: #30d158; --down-mark: #ff453a;
+  --warn: #ff9f0a; --warn-mark: #ff9f0a;
+  --pill-hold: rgba(48, 209, 88, 0.18); --pill-cash: rgba(142, 142, 147, 0.18);
+  --segment: rgba(118, 118, 128, 0.24); --segment-on: rgba(99, 99, 102, 0.9);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+  color: var(--text-1);
+  background: linear-gradient(160deg, var(--bg-1), var(--bg-2));
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+/* Soft color blobs behind the glass */
+body::before {
+  content: ""; position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(40vmax 34vmax at 18% 12%, var(--blob-1), transparent 60%),
+    radial-gradient(36vmax 30vmax at 88% 18%, var(--blob-2), transparent 60%),
+    radial-gradient(44vmax 36vmax at 60% 96%, var(--blob-3), transparent 62%);
+  filter: blur(8px);
+}
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 48px; }
+
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
+.sub { color: var(--text-3); font-size: 13px; margin-top: 4px; }
+.header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  background: var(--glass); border: 0.5px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.5);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+.dot.up { background: var(--up-mark); box-shadow: 0 0 0 3px color-mix(in srgb, var(--up-mark) 22%, transparent); }
+.dot.down { background: var(--down-mark); }
+.dot.warn { background: var(--warn-mark); }
+.dot.accent { background: var(--accent); }
+
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.span-12 { grid-column: span 12; } .span-8 { grid-column: span 8; } .span-7 { grid-column: span 7; }
+.span-6 { grid-column: span 6; } .span-5 { grid-column: span 5; } .span-4 { grid-column: span 4; }
+@media (max-width: 980px) { .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 12; } }
+
+.card {
+  position: relative; border-radius: 24px; padding: 20px 22px;
+  background: var(--glass);
+  border: 0.5px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.5px var(--glass-edge);
+  min-width: 0;
+}
+.card h2 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.card .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; min-height: 28px; flex-wrap: wrap; }
+.card .hint { font-size: 12px; color: var(--text-3); }
+.error { color: var(--down); font-size: 13px; }
+.empty { color: var(--text-3); font-size: 13.5px; padding: 18px 0; text-align: center; }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr); gap: 24px; align-items: center; }
+@media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
+.hero-label { font-size: 13px; color: var(--text-2); font-weight: 500; }
+.hero-value { font-size: 52px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.05; margin: 4px 0 8px; }
+.deltas { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; font-weight: 600; }
+.delta { display: inline-flex; align-items: center; gap: 4px; }
+.delta .when { color: var(--text-3); font-weight: 500; }
+.up { color: var(--up); } .down { color: var(--down); }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { border-radius: 16px; padding: 12px 14px; background: var(--glass-strong); border: 0.5px solid var(--glass-border); min-width: 0; }
+.tile .label { font-size: 12px; color: var(--text-3); font-weight: 500; }
+.tile .value { font-size: 20px; font-weight: 650; margin-top: 2px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .note { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+
+/* Segmented control */
+.segmented { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--segment); }
+.segmented button {
+  border: 0; background: transparent; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  padding: 4px 12px; border-radius: 7px; cursor: pointer;
+}
+.segmented button[aria-pressed="true"] { background: var(--segment-on); color: var(--text-1); box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.04); }
+
+/* Line chart */
+.chart { position: relative; height: 240px; }
+.chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .axis-label { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { fill: var(--accent-wash); }
+.chart .base { stroke: var(--text-3); stroke-width: 1; opacity: 0.5; }
+.chart .cross { stroke: var(--text-3); stroke-width: 1; opacity: 0.6; }
+.chart .marker { fill: var(--accent); stroke: var(--glass-strong); stroke-width: 2; }
+.tooltip {
+  position: absolute; pointer-events: none; padding: 7px 10px; border-radius: 10px; font-size: 12px; white-space: nowrap;
+  background: var(--glass-strong); border: 0.5px solid var(--glass-border); box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); transform: translate(-50%, -120%); display: none;
+}
+.tooltip b { display: block; font-size: 13px; }
+.tooltip span { color: var(--text-3); }
+
+/* Bars */
+.bars { display: grid; gap: 14px; }
+.bar-row { display: grid; grid-template-columns: 110px 1fr 92px; align-items: center; gap: 10px; font-size: 13px; }
+.bar-row .name { color: var(--text-1); font-weight: 500; }
+.bar-row .name small { display: block; color: var(--text-3); font-weight: 400; font-size: 11.5px; }
+.bar-track { position: relative; height: 22px; }
+.bar-track .zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--hairline); }
+.bar { position: absolute; top: 5px; height: 12px; }
+.bar.pos { background: var(--up-mark); border-radius: 0 4px 4px 0; }
+.bar.neg { background: var(--down-mark); border-radius: 4px 0 0 4px; }
+.bar-row .amt { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar-row .amt small { display: block; font-weight: 500; font-size: 11.5px; }
+
+/* Tables */
+.table-wrap { overflow-x: auto; margin: 0 -6px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--text-3); font-size: 11.5px; padding: 0 6px 8px; white-space: nowrap; }
+td { padding: 10px 6px; border-top: 0.5px solid var(--hairline); vertical-align: middle; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sym { font-weight: 650; }
+.sym small { display: block; font-weight: 400; color: var(--text-3); font-size: 11.5px; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 650; white-space: nowrap;
+}
+.pill.hold { background: var(--pill-hold); color: var(--up); }
+.pill.cash { background: var(--pill-cash); color: var(--text-2); }
+.pill.change { background: color-mix(in srgb, var(--warn-mark) 18%, transparent); color: var(--warn); }
+td.signal-cell { min-width: 170px; }
+.signal-cell .detail { font-size: 11.5px; color: var(--text-3); margin-top: 4px; line-height: 1.35; }
+.signal-cell .flags { display: flex; gap: 4px; flex-wrap: wrap; }
+.na { color: var(--text-3); font-size: 12px; }
+
+/* Trades timeline */
+.trades-scroll { max-height: 330px; overflow-y: auto; margin-right: -8px; padding-right: 8px; }
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline li { display: grid; grid-template-columns: 12px 1fr; gap: 10px; padding: 9px 0; border-top: 0.5px solid var(--hairline); }
+.timeline li:first-child { border-top: 0; }
+.timeline .dot { margin-top: 5px; }
+.timeline .text { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.timeline .meta { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.day-label { font-size: 11.5px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; padding: 12px 0 2px; }
+
+/* Health */
+.jobs { display: grid; gap: 10px; }
+.job { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--glass-strong); border: 0.5px solid var(--glass-border); }
+.job .name { font-size: 13.5px; font-weight: 600; }
+.job .meta { font-size: 11.5px; color: var(--text-3); }
+.job .state { font-size: 12px; color: var(--text-2); font-weight: 500; text-align: right; }
+
+.stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 600px) { .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+footer { margin-top: 22px; text-align: center; color: var(--text-3); font-size: 12px; }
+@media (max-width: 600px) { .wrap { padding: 20px 16px 40px; } h1 { font-size: 28px; } .hero-value { font-size: 44px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Trading</h1>
+      <div class="sub" id="updated">Loading…</div>
+    </div>
+    <div class="header-right">
+      <span class="chip" id="market"><span class="dot"></span>Market</span>
+      <span class="chip"><span class="dot accent"></span>Paper account</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card span-12" id="overview" aria-label="Account overview"></section>
+
+    <section class="card span-8">
+      <div class="card-head">
+        <h2>Account value</h2>
+        <div class="segmented" role="group" aria-label="Time range" id="ranges">
+          <button data-range="1D">1D</button><button data-range="1W">1W</button><button data-range="1M">1M</button><button data-range="ALL">All</button>
+        </div>
+      </div>
+      <div class="chart" id="chart"><div class="tooltip" id="tip"></div></div>
+    </section>
+
+    <section class="card span-4">
+      <div class="card-head"><h2>By strategy</h2><span class="hint">Open profit/loss</span></div>
+      <div id="strategies"></div>
+    </section>
+
+    <section class="card span-12">
+      <div class="card-head"><h2>Signals</h2><span class="hint" id="signals-hint">What each strategy wants right now</span></div>
+      <div id="signals"></div>
+    </section>
+
+    <section class="card span-7">
+      <div class="card-head"><h2>Holdings</h2><span class="hint" id="holdings-hint"></span></div>
+      <div id="holdings"></div>
+    </section>
+
+    <section class="card span-5">
+      <div class="card-head"><h2>Recent trades</h2></div>
+      <div id="trades"></div>
+    </section>
+
+    <section class="card span-7">
+      <div class="card-head"><h2>ORB experiment</h2><span class="hint">Day trades on stocks in play</span></div>
+      <div id="orb"></div>
+    </section>
+
+    <section class="card span-5">
+      <div class="card-head"><h2>Bot health</h2></div>
+      <div id="health"></div>
+    </section>
+  </div>
+
+  <footer>View-only. Refreshes every 20 seconds. Nothing on this page can place a trade.</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const usd = (v, d = 2) => (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const signedUsd = (v) => (v >= 0 ? "+" : "−") + "$" + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = (v, d = 2) => (v >= 0 ? "+" : "−") + Math.abs(v * 100).toFixed(d) + "%";
+const tone = (v) => (v >= 0 ? "up" : "down");
+const arrow = (v) => (v >= 0 ? "▲" : "▼");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const errBox = (sec) => `<div class="error">Couldn't load this: ${esc(sec.error)}</div>`;
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+function renderOverview(a) {
+  const el = $("overview");
+  if (a.error) { el.innerHTML = errBox(a); return; }
+  el.innerHTML = `
+    <div class="hero">
+      <div>
+        <div class="hero-label">Account value</div>
+        <div class="hero-value">${usd(a.equity)}</div>
+        <div class="deltas">
+          <span class="delta ${tone(a.day_change)}">${arrow(a.day_change)} ${signedUsd(a.day_change)} (${pct(a.day_pct)}) <span class="when">today</span></span>
+          <span class="delta ${tone(a.total_change)}">${arrow(a.total_change)} ${signedUsd(a.total_change)} (${pct(a.total_pct)}) <span class="when">since start</span></span>
+        </div>
+      </div>
+      <div class="tiles">
+        <div class="tile"><div class="label">Cash</div><div class="value">${usd(a.cash, 0)}</div><div class="note">available</div></div>
+        <div class="tile"><div class="label">Invested</div><div class="value">${usd(a.invested, 0)}</div><div class="note">${Math.round(a.invested_pct * 100)}% of account</div></div>
+        <div class="tile"><div class="label">Open profit/loss</div><div class="value ${tone(a.open_pl)}">${signedUsd(a.open_pl)}</div><div class="note">on current holdings</div></div>
+        <div class="tile"><div class="label">Started with</div><div class="value">${usd(a.starting_balance, 0)}</div><div class="note">paper money</div></div>
+      </div>
+    </div>`;
+  const next = new Date(a.market_open ? a.next_close : a.next_open);
+  const when = next.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  $("market").innerHTML = `<span class="dot ${a.market_open ? "up" : ""}"></span>${a.market_open ? "Market open · closes " : "Market closed · opens "}${when} ET`;
+}
+
+// --- Line chart ------------------------------------------------------------
+let historyPoints = [], historyRange = store.get("range") || "1W";
+
+function niceTicks(min, max, count = 4) {
+  const span = max - min || Math.max(1, Math.abs(max) * 0.01);
+  const step0 = span / count, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0);
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+  const ticks = []; for (let v = lo; v <= hi + step / 2; v += step) ticks.push(v);
+  return ticks;
+}
+
+function renderChart() {
+  const box = $("chart"), tip = $("tip");
+  box.querySelector("svg")?.remove();
+  if (!historyPoints.length) { box.insertAdjacentHTML("afterbegin", `<div class="empty">No history yet for this range.</div>`); return; }
+  box.querySelector(".empty")?.remove();
+  const W = box.clientWidth, H = box.clientHeight, padL = 58, padR = 12, padT = 10, padB = 24;
+  const vals = historyPoints.map((p) => p.v), ts = historyPoints.map((p) => p.t);
+  const ticks = niceTicks(Math.min(...vals), Math.max(...vals));
+  const yMin = ticks[0], yMax = ticks[ticks.length - 1];
+  const x = (i) => padL + (historyPoints.length === 1 ? (W - padL - padR) / 2 : (i / (historyPoints.length - 1)) * (W - padL - padR));
+  const y = (v) => padT + (1 - (v - yMin) / (yMax - yMin || 1)) * (H - padT - padB);
+  const line = historyPoints.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+  const area = `${line}L${x(historyPoints.length - 1).toFixed(1)},${H - padB}L${x(0).toFixed(1)},${H - padB}Z`;
+  const fmtTime = (t) => new Date(t).toLocaleString("en-US", historyRange === "1D"
+    ? { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }
+    : { month: "short", day: "numeric", timeZone: "America/New_York" });
+  const xLabels = [0, Math.floor((historyPoints.length - 1) / 2), historyPoints.length - 1]
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .map((i) => `<text class="axis-label" x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === historyPoints.length - 1 ? "end" : "middle"}">${fmtTime(ts[i])}</text>`).join("");
+  const grid = ticks.map((v) => `<line class="gridline" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/>
+      <text class="axis-label" x="${padL - 8}" y="${y(v) + 4}" text-anchor="end">${"$" + (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "K" : v.toFixed(0))}</text>`).join("");
+  const last = historyPoints.length - 1;
+  box.insertAdjacentHTML("afterbegin", `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Account value from ${usd(vals[0])} to ${usd(vals[last])}">
+      ${grid}
+      <path class="area" d="${area}"/>
+      <path class="line" d="${line}"/>
+      <circle class="marker" cx="${x(last)}" cy="${y(vals[last])}" r="4.5"/>
+      <line class="cross" id="cross" y1="${padT}" y2="${H - padB}" style="display:none"/>
+      <circle class="marker" id="hover-dot" r="4.5" style="display:none"/>
+      ${xLabels}
+      <rect id="hit" x="${padL}" y="0" width="${W - padL - padR}" height="${H}" fill="transparent"/>
+    </svg>`);
+  const hit = box.querySelector("#hit"), cross = box.querySelector("#cross"), dot = box.querySelector("#hover-dot");
+  const move = (ev) => {
+    const r = box.getBoundingClientRect(), px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const i = Math.max(0, Math.min(last, Math.round(((px - padL) / (W - padL - padR)) * last)));
+    const cx = x(i), cy = y(vals[i]);
+    cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.style.display = "";
+    dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.style.display = "";
+    const when = new Date(ts[i]).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+    const change = vals[i] - vals[0];
+    tip.innerHTML = `<b>${usd(vals[i])}</b><span>${when} ET · </span><span class="${tone(change)}">${signedUsd(change)}</span>`;
+    tip.style.display = "block"; tip.style.left = Math.max(70, Math.min(W - 70, cx)) + "px"; tip.style.top = cy + "px";
+  };
+  const leave = () => { cross.style.display = dot.style.display = tip.style.display = "none"; };
+  hit.addEventListener("mousemove", move); hit.addEventListener("touchmove", move, { passive: true });
+  hit.addEventListener("mouseleave", leave); hit.addEventListener("touchend", leave);
+}
+
+async function loadHistory() {
+  document.querySelectorAll("#ranges button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.range === historyRange));
+  try {
+    const data = await (await fetch(`/api/history?range=${historyRange}`)).json();
+    historyPoints = data.points || [];
+  } catch { historyPoints = []; }
+  renderChart();
+}
+document.querySelectorAll("#ranges button").forEach((b) => b.addEventListener("click", () => {
+  historyRange = b.dataset.range; store.set("range", historyRange); loadHistory();
+}));
+window.addEventListener("resize", () => renderChart());
+
+// --- Strategy bars ---------------------------------------------------------
+function renderStrategies(rows) {
+  const el = $("strategies");
+  if (rows.error) { el.innerHTML = errBox(rows); return; }
+  if (!rows.length) { el.innerHTML = `<div class="empty">No strategy holds anything yet.</div>`; return; }
+  const maxAbs = Math.max(...rows.map((r) => Math.abs(r.pl)), 1);
+  const anyNeg = rows.some((r) => r.pl < 0), anyPos = rows.some((r) => r.pl > 0);
+  const zero = anyNeg && anyPos ? 50 : anyNeg ? 100 : 0;
+  const span = anyNeg && anyPos ? 50 : 100;
+  el.innerHTML = `<div class="bars">${rows.map((r) => {
+    const w = (Math.abs(r.pl) / maxAbs) * span;
+    const left = r.pl >= 0 ? zero : zero - w;
+    return `<div class="bar-row" title="${esc(r.name)}: ${signedUsd(r.pl)} on ${usd(r.cost, 0)} invested">
+      <div class="name">${esc(r.name)}<small>${r.positions} position${r.positions === 1 ? "" : "s"}</small></div>
+      <div class="bar-track"><div class="zero" style="left:${zero}%"></div><div class="bar ${r.pl >= 0 ? "pos" : "neg"}" style="left:${left}%;width:${Math.max(w, 0.8)}%"></div></div>
+      <div class="amt ${tone(r.pl)}">${signedUsd(r.pl)}<small>${pct(r.pl_pct)}</small></div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+// --- Signals ---------------------------------------------------------------
+function renderSignals(sig) {
+  const el = $("signals");
+  if (sig.error) { el.innerHTML = errBox(sig); return; }
+  $("signals-hint").textContent = `What each strategy wants · prices as of the last close`;
+  const used = sig.strategies.filter((s) => sig.rows.some((r) => r.cells && r.cells[s.key]));
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th>${used.map((s) => `<th>${esc(s.name)}</th>`).join("")}</tr></thead>
+    <tbody>${sig.rows.map((r) => r.error
+      ? `<tr><td class="sym">${esc(r.symbol)}</td><td colspan="${used.length}" class="error">${esc(r.error)}</td></tr>`
+      : `<tr><td class="sym">${esc(r.symbol)}<small>${usd(r.price)}</small></td>${used.map((s) => {
+          const c = r.cells[s.key];
+          if (!c) return `<td><span class="na">Not used</span></td>`;
+          const pill = c.holding ? `<span class="pill hold">● Holding</span>` : `<span class="pill cash">○ In cash</span>`;
+          const change = c.pending_change ? `<span class="pill change">${c.want === "hold" ? "Buys" : "Sells"} next run</span>` : "";
+          return `<td class="signal-cell"><div class="flags">${pill}${change}</div><div class="detail">${esc(c.detail)}</div></td>`;
+        }).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+// --- Holdings --------------------------------------------------------------
+function renderHoldings(rows) {
+  const el = $("holdings");
+  if (rows.error) { el.innerHTML = errBox(rows); return; }
+  if (!rows.length) { el.innerHTML = `<div class="empty">Nothing held right now.</div>`; return; }
+  $("holdings-hint").textContent = `${rows.length} positions`;
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th class="num">Shares</th><th class="num">Price</th><th class="num">Value</th><th class="num">Profit/loss</th><th class="num">Today</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr>
+      <td class="sym">${esc(r.symbol)}</td>
+      <td class="num">${r.crypto ? r.qty.toFixed(5) : r.qty.toLocaleString()}</td>
+      <td class="num">${usd(r.price)}</td>
+      <td class="num">${usd(r.value)}</td>
+      <td class="num ${tone(r.pl)}">${signedUsd(r.pl)} <span style="opacity:.75">${pct(r.pl_pct)}</span></td>
+      <td class="num ${tone(r.today_pct)}">${pct(r.today_pct)}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+}
+
+// --- Trades ----------------------------------------------------------------
+const kindDot = { buy: "accent", sell: "", profit: "up", loss: "down", error: "warn", info: "" };
+function renderTrades(rows) {
+  const el = $("trades");
+  if (rows.error) { el.innerHTML = errBox(rows); return; }
+  if (!rows.length) { el.innerHTML = `<div class="empty">No trades yet.</div>`; return; }
+  const days = [];
+  for (const r of rows) {
+    if (!days.length || days[days.length - 1].day !== r.day) days.push({ day: r.day, items: [] });
+    days[days.length - 1].items.push(r);
+  }
+  el.innerHTML = `<div class="trades-scroll">${days.map((d) => `
+    <div class="day-label">${esc(d.day)}</div>
+    <ul class="timeline">${d.items.map((r) => `
+      <li><span class="dot ${kindDot[r.kind] || ""}"></span>
+        <div><div class="text">${esc(r.text)}</div><div class="meta">${esc(r.time)} ET</div></div></li>`).join("")}
+    </ul>`).join("")}</div>`;
+}
+
+// --- ORB -------------------------------------------------------------------
+const orbDot = { "In trade": "accent", "Waiting": "", "Stopped out": "down", "Closed": "up", "No breakout": "", "Order failed": "warn" };
+function renderOrb(o) {
+  const el = $("orb");
+  if (o.error) { el.innerHTML = errBox(o); return; }
+  const at = o.all_time;
+  const stats = at ? `<div class="stat-row">
+      <div class="tile"><div class="label">All-time profit/loss</div><div class="value ${tone(at.pnl)}">${signedUsd(at.pnl)}</div><div class="note">${at.days} day${at.days === 1 ? "" : "s"}</div></div>
+      <div class="tile"><div class="label">Trades</div><div class="value">${at.trades}</div><div class="note">${at.wins} wins</div></div>
+      <div class="tile"><div class="label">Entry slippage</div><div class="value">${at.entry_slip >= 0 ? "+" : ""}${at.entry_slip.toFixed(1)}¢</div><div class="note">per share · 1¢ assumed</div></div>
+      <div class="tile"><div class="label">Stop slippage</div><div class="value">${isNaN(at.stop_slip) || at.stop_slip === null ? "–" : (at.stop_slip >= 0 ? "+" : "") + at.stop_slip.toFixed(1) + "¢"}</div><div class="note">per share</div></div>
+    </div>` : "";
+  if (!o.active) {
+    el.innerHTML = stats + `<div class="empty">${o.enabled ? "No ORB trades today. It starts at 9:15 AM ET on market days, picks 20 stocks at 9:35 and closes everything by 3:55." : "The ORB experiment is turned off in config.py."}</div>`;
+    return;
+  }
+  el.innerHTML = stats + `<div class="card-head" style="margin:0 0 6px"><span class="hint">Today</span><span class="${tone(o.today_pl)}" style="font-weight:650">${signedUsd(o.today_pl)}</span></div>
+    <div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Side</th><th class="num">Shares</th><th class="num">Trigger</th><th class="num">Stop</th><th>Status</th><th class="num">Profit/loss</th></tr></thead>
+    <tbody>${o.rows.map((r) => `<tr>
+      <td class="sym">${esc(r.symbol)}<small>${r.relative_volume.toFixed(1)}× volume</small></td>
+      <td>${r.direction === "long" ? "Long" : "Short"}</td>
+      <td class="num">${r.qty}</td>
+      <td class="num">${usd(r.trigger)}</td>
+      <td class="num">${r.stop ? usd(r.stop) : "–"}</td>
+      <td><span class="chip" style="height:22px;padding:0 9px;font-size:11.5px"><span class="dot ${orbDot[r.status] || ""}"></span>${esc(r.status)}</span></td>
+      <td class="num ${r.pl === null ? "" : tone(r.pl)}">${r.pl === null ? "–" : signedUsd(r.pl)}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+}
+
+// --- Health ----------------------------------------------------------------
+function renderHealth(h) {
+  const el = $("health");
+  if (h.error) { el.innerHTML = errBox(h); return; }
+  const fmtRun = (s) => s || "not yet";
+  el.innerHTML = `<div class="jobs">${h.jobs.map((j) => {
+    const bad = j.last_exit && !["0", "(never"].includes(j.last_exit);
+    const state = !j.loaded ? "Not scheduled" : j.running ? "Running now" : bad ? `Last run failed (${j.last_exit})` : "Scheduled";
+    const dot = !j.loaded || bad ? "warn" : j.running ? "accent" : "up";
+    return `<div class="job"><span class="dot ${dot}"></span>
+      <div><div class="name">${esc(j.name)}</div><div class="meta">${esc(j.schedule)} · last run ${fmtRun(j.last_run)}</div></div>
+      <div class="state">${state}</div></div>`;
+  }).join("")}</div>
+  <div style="margin-top:14px;font-size:12.5px" class="${h.errors_today.length ? "error" : "hint"}">
+    ${h.errors_today.length ? "Errors today:<br>" + h.errors_today.map(esc).join("<br>") : "✓ No errors today"}
+  </div>
+  <div class="hint" style="margin-top:6px">Your Mac has to be awake at these times.</div>`;
+}
+
+// --- Refresh loop ----------------------------------------------------------
+async function refresh() {
+  try {
+    const d = await (await fetch("/api/summary")).json();
+    $("updated").textContent = `Updated ${d.updated}`;
+    renderOverview(d.account); renderStrategies(d.strategies); renderSignals(d.signals);
+    renderHoldings(d.holdings); renderTrades(d.trades); renderOrb(d.orb); renderHealth(d.health);
+  } catch (e) {
+    $("updated").textContent = "Can't reach the dashboard server. Is it running?";
+  }
+}
+refresh(); loadHistory();
+setInterval(refresh, 20000); setInterval(loadHistory, 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keeps the dashboard (http://localhost:8050) running in the background.
+  Starts at login and restarts it if it ever stops.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.presleybarr.tradingbot.dashboard</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/presleybarr/trading bot/.venv/bin/python</string>
+        <string>/Users/presleybarr/trading bot/dashboard.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/presleybarr/trading bot</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <!-- Wait 30 seconds between restarts if it crashes -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/presleybarr/trading bot/logs/dashboard.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/presleybarr/trading bot/logs/dashboard.err.log</string>
+</dict>
+</plist>

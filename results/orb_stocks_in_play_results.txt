@@ -1,0 +1,43 @@
+Stocks-in-play ORB, 1-minute bars: 2016-01-25 to 2026-10-20 (10.8 years)
+Universe 6,621 stocks, delisted included; about 814 pass the filters on a typical day.
+Fixed $25,000 account every day (profits not reinvested). Returns are % of $25,000 per year.
+
+Entry-bar rule   Cost/share/side  Avg per year  Worst drop  Sharpe   Trades   Wins  Avg R
+-----------------------------------------------------------------------------------------
+strict                    $0.000        -92.3%      -1007%   -4.22   43,693    10%  -0.26
+strict                    $0.010       -150.4%      -1628%   -6.84   43,693     9%    nan
+strict                    $0.020       -208.6%      -2254%   -9.39   43,693     9%    nan
+strict                    $0.050       -383.1%      -4135%  -16.45   43,693     9%    nan
+
+lenient                   $0.000        120.0%        -40%    3.11   43,693    14%   0.34
+lenient                   $0.010         61.8%        -54%    1.60   43,693    14%    nan
+lenient                   $0.020          3.6%        -73%    0.09   43,693    14%    nan
+lenient                   $0.050       -170.9%      -1848%   -4.38   43,693    13%    nan
+
+SPY buy and hold                         15.1%        -34%
+
+Year by year at $0.01 per share per side (% of $25k):
+Year       Strict  Lenient      SPY
+2016       -60.4%    49.0%   +13.6%
+2017      -121.3%    17.9%   +21.7%
+2018      -112.3%    63.4%    -4.6%
+2019      -114.6%    42.5%   +31.2%
+2020      -176.1%    80.2%   +18.3%
+2021      -224.4%    89.7%   +28.7%
+2022      -112.2%   130.4%   -18.2%
+2023      -152.6%    -4.4%   +26.2%
+2024      -187.9%    89.7%   +24.9%
+2025      -193.9%    47.5%   +17.7%
+2026      -167.8%    60.9%   +14.3%
+
+Entry-bar rule   a 1-minute bar can't show whether the price hit the entry or the stop first.
+                 strict: touching the stop in the entry minute counts as stopped out.
+                 lenient: only if that minute also closes past the stop.
+                 The truth is somewhere in between; a big gap between the two means the
+                 result depends on fills a backtest can't see.
+Cost/share/side  spread + slippage on entry and again on exit, plus $0.0005/share commission.
+                 $0 matches the paper's assumptions. Stocks in play often have wider spreads
+                 than 1 cent at the open, so 2-5 cents is a realistic range for many of them.
+Avg R            average gross trade as a multiple of the risk (entry-to-stop distance), before costs.
+Wins             share of trades that made money after costs.
+Past results do not predict future results.

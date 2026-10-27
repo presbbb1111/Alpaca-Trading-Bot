@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Runs the trading bot every day at 8:30 AM Central (= 9:30 AM Eastern).
+  The Mac's clock is on Central time; both zones shift for daylight saving
+  together, so this stays aligned with the market open all year.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.presleybarr.tradingbot</string>
+
+    <key>ProgramArguments</key>
+    <!-- caffeinate keeps the Mac from falling back asleep until the bot finishes -->
+    <array>
+        <string>/usr/bin/caffeinate</string>
+        <string>-i</string>
+        <string>/Users/presleybarr/trading bot/.venv/bin/python</string>
+        <string>/Users/presleybarr/trading bot/bot.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/presleybarr/trading bot</string>
+
+    <!-- Every day: stocks are skipped on weekends and holidays, crypto always runs -->
+    <key>StartCalendarInterval</key>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
+
+    <!-- Crashes that happen before the bot's own logging starts land here -->
+    <key>StandardOutPath</key>
+    <string>/Users/presleybarr/trading bot/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/presleybarr/trading bot/logs/launchd.err.log</string>
+</dict>
+</plist>

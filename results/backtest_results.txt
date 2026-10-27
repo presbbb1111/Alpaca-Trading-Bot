@@ -1,0 +1,47 @@
+AAPL backtest: 2021-10-20 to 2026-10-20 (1255 trading days), 0.05% cost per trade
+
+Strategy                   $10,000 becomes     Total  Per year  Worst drop  Trades   Wins  Invested
+---------------------------------------------------------------------------------------------------
+Buy and hold                       $23,421      134%     18.6%        -33%       1      -      100%
+MA crossover (20/50)               $14,094       41%      7.1%        -29%      17    41%       59%
+RSI reversion (30/70)              $13,754       38%      6.6%        -31%       5   100%       38%
+Momentum (252-day)                 $16,382       64%     10.4%        -33%       4    50%       87%
+Breakout (50/20)                   $16,205       62%     10.1%        -19%      12    58%       43%
+
+MSFT backtest: 2021-10-20 to 2026-10-20 (1255 trading days), 0.05% cost per trade
+
+Strategy                   $10,000 becomes     Total  Per year  Worst drop  Trades   Wins  Invested
+---------------------------------------------------------------------------------------------------
+Buy and hold                       $17,982       80%     12.5%        -36%       1      -      100%
+MA crossover (20/50)                $9,889       -1%     -0.2%        -40%      14    36%       55%
+RSI reversion (30/70)              $14,688       47%      8.0%        -30%       5    60%       42%
+Momentum (252-day)                 $12,539       25%      4.6%        -29%       5    60%       68%
+Breakout (50/20)                   $10,864        9%      1.7%        -32%      16    44%       40%
+
+NVDA backtest: 2021-10-20 to 2026-10-20 (1255 trading days), 0.05% cost per trade
+
+Strategy                   $10,000 becomes     Total  Per year  Worst drop  Trades   Wins  Invested
+---------------------------------------------------------------------------------------------------
+Buy and hold                       $97,208      872%     57.6%        -67%       1      -      100%
+MA crossover (20/50)               $29,893      199%     24.5%        -65%      15    53%       62%
+RSI reversion (30/70)              $11,138       11%      2.2%        -62%       2    50%       18%
+Momentum (252-day)                 $52,558      426%     39.4%        -57%       2    50%       85%
+Breakout (50/20)                   $26,694      167%     21.7%        -38%      17    47%       49%
+
+SPY backtest: 2021-10-20 to 2026-10-20 (1255 trading days), 0.05% cost per trade
+
+Strategy                   $10,000 becomes     Total  Per year  Worst drop  Trades   Wins  Invested
+---------------------------------------------------------------------------------------------------
+Buy and hold                       $18,142       81%     12.7%        -26%       1      -      100%
+MA crossover (20/50)               $12,165       22%      4.0%        -28%      12    50%       69%
+RSI reversion (30/70)              $15,451       55%      9.1%        -20%       5    80%       35%
+Momentum (252-day)                 $17,809       78%     12.2%        -20%       2    50%       82%
+Breakout (50/20)                   $12,854       29%      5.2%        -16%      16    50%       52%
+
+Total / Per year  how much the account grew overall, and the average yearly growth
+Worst drop        the biggest fall from a high point before recovering
+Trades            completed buy-then-sell round trips (an open trade at the end counts)
+Wins              share of those trades that made money
+Invested          share of days the strategy held the asset instead of cash
+
+Past results do not predict future results.

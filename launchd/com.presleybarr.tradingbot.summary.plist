@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Sends the end-of-day Discord summary every day at 3:15 PM Central
+  (= 4:15 PM Eastern, 15 minutes after the stock market closes).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.presleybarr.tradingbot.summary</string>
+
+    <!-- caffeinate keeps the Mac from falling back asleep until it finishes -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/caffeinate</string>
+        <string>-i</string>
+        <string>/Users/presleybarr/trading bot/.venv/bin/python</string>
+        <string>/Users/presleybarr/trading bot/summary.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/presleybarr/trading bot</string>
+
+    <key>StartCalendarInterval</key>
+    <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/presleybarr/trading bot/logs/summary.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/presleybarr/trading bot/logs/summary.err.log</string>
+</dict>
+</plist>

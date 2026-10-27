@@ -1,0 +1,6 @@
+alpaca-py
+yfinance
+pandas
+python-dotenv
+certifi
+flask

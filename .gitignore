@@ -1,0 +1,22 @@
+# Secrets: API keys and the Discord webhook
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Logs and downloaded market data (large, re-downloadable)
+logs/
+data/
+
+# Live account state and personal trade records
+positions.json
+trades.txt
+orb_trades.txt
+orb_fills.csv
+
+# macOS / editors
+.DS_Store
+.vscode/
+.claude/
