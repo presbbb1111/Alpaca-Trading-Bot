@@ -6,6 +6,8 @@ written after the end-of-day summary. This script does the two mechanical parts:
     python review.py data                       # today's facts, as text
     python review.py data --date 2026-11-03
     python review.py post reviews/2026-11-03.md # post a written review to Discord
+    python review.py changes                    # post the latest commit to Discord
+    python review.py changes --since 2026-11-03 # post every commit since a date
 
 Proposed changes are tracked in reviews/proposals.md. Each one waits for an
 approve or deny before anything changes.
@@ -150,6 +152,18 @@ def post(path):
             notify.send(heading.strip() + (" (cont.)" if i else ""), piece, kind)
 
 
+def changes(since=None):
+    """Post commits to Discord as "Change made" messages. The git post-commit
+    hook runs this after every commit, so every change shows up there."""
+    load_dotenv(BOT_DIR / ".env")
+    run = lambda *a: subprocess.run(["git", *a], cwd=BOT_DIR, capture_output=True, text=True).stdout.strip()
+    commits = run("log", "--reverse", "--format=%h", f"--since={since}").split() if since else [run("log", "-1", "--format=%h")]
+    for h in commits:
+        subject, _, body = run("log", "-1", "--format=%s%n%b", h).partition("\n")
+        files = run("show", "--format=", "--name-only", h)
+        notify.send(f"🔧 Change made: {subject}", f"{body.strip()}\n\n**Files:** {', '.join(files.split())}\n**Commit:** {h}", "buy")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -157,11 +171,15 @@ def main():
     d.add_argument("--date", type=date.fromisoformat, default=date.today())
     p = sub.add_parser("post", help="post a written review to Discord")
     p.add_argument("file")
+    c = sub.add_parser("changes", help="post commits to Discord")
+    c.add_argument("--since", help="post every commit since this date instead of just the latest")
     args = parser.parse_args()
     if args.command == "data":
         print(data(args.date))
-    else:
+    elif args.command == "post":
         post(args.file)
+    else:
+        changes(args.since)
 
 
 if __name__ == "__main__":
