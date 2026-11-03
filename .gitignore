@@ -19,3 +19,6 @@ orb_fills.csv
 # macOS / editors
 .DS_Store
 .vscode/
+
+# Daily reviews and proposals (personal P/L)
+reviews/
