@@ -9,9 +9,9 @@ account so we can see actual fills:
   9:35 ET  Rank by relative volume in the first 5 minutes, take the top 20.
            Place a buy stop at the opening range high (up bar) or a sell-short
            stop at the low (down bar).
-  All day  As soon as an entry fills, place a stop-loss config.ORB_STOP_ATR_FRACTION
-           of ATR away. The stop is GTC and held by Alpaca, so it survives a
-           crash or a sleeping Mac.
+  All day  As soon as an entry fills, place a stop-loss the day's share of ATR
+           away (config.ORB_STOP_ATR_FRACTIONS). The stop is GTC and held by
+           Alpaca, so it survives a crash or a sleeping Mac.
   15:55 ET Cancel anything unfilled and close every ORB position.
 
 Reliability:
@@ -234,6 +234,11 @@ def prepare(trading, data, day):
 
 # --- 9:35: pick the stocks in play ------------------------------------------
 
+def stop_fraction(day):
+    """The stop size in effect on `day` (config.ORB_STOP_ATR_FRACTIONS)."""
+    return next(f for start, f in sorted(config.ORB_STOP_ATR_FRACTIONS.items(), reverse=True) if start <= str(day))
+
+
 def pick(data, prep, day):
     t = datetime.combine(day, dtime(9, 30), ET)
     first = bars(data, list(prep), TimeFrame(5, TimeFrameUnit.Minute), t, t + timedelta(seconds=59), feed())
@@ -247,7 +252,7 @@ def pick(data, prep, day):
             candidates.append({
                 "symbol": row.symbol, "direction": direction, "relative_volume": round(relative_volume, 2),
                 "trigger": round(row.high if direction == 1 else row.low, 2), "atr": info["atr"],
-                "risk": config.ORB_STOP_ATR_FRACTION * info["atr"],
+                "risk": stop_fraction(day) * info["atr"],
             })
     candidates.sort(key=lambda c: c["relative_volume"], reverse=True)
     picks = candidates[:TOP_N]
@@ -543,7 +548,7 @@ def run(dry_run):
         picks = pick(data, prep, day)
         for p in picks:
             log.info(f"would {'buy' if p['direction'] == 1 else 'short'} {p['qty']} {p['symbol']} on a break of "
-                     f"{p['trigger']:.2f}, stop {config.ORB_STOP_ATR_FRACTION:.0%} of ATR (${p['risk']:.2f}), relative volume {p['relative_volume']:.1f}x")
+                     f"{p['trigger']:.2f}, stop {stop_fraction(day):.0%} of ATR (${p['risk']:.2f}), relative volume {p['relative_volume']:.1f}x")
         print(f"{len(prep)} candidates, {len(picks)} picks for {day} (dry run, no orders)")
         for p in picks:
             print(f"  {p['symbol']:<6}{'LONG ' if p['direction'] == 1 else 'SHORT'} {p['qty']:>5} on a break of {p['trigger']:>8.2f}"
@@ -565,7 +570,7 @@ def run(dry_run):
              f"{p['qty']} on a break of ${p['trigger']:.2f} (relative volume {p['relative_volume']:.1f}x)"
              + ("" if p.get("entry_type") == "stop" else f" - {p.get('entry_type')}") for p in picks]
     alert(f"{len(picks)} stocks in play", "\n".join(lines) or "No stocks qualified today.")
-    journal(day, f"{len(picks)} picks placed: {', '.join(p['symbol'] for p in picks)}")
+    journal(day, f"{len(picks)} picks placed (stop {stop_fraction(day):.0%} of ATR): {', '.join(p['symbol'] for p in picks)}")
 
     finish(trading, picks, day, close_time, state_path)
 

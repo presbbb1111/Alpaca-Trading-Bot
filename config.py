@@ -25,10 +25,16 @@ ORB_ENABLED = True
 # Money the experiment sizes its trades from: 1% of this at risk per trade,
 # and at most 4x this in total positions at once (intraday only).
 ORB_CAPITAL = 25_000
-# Stop-loss distance as a fraction of the stock's 14-day ATR. The paper used
-# 10%, but live trades at 10% were stopped out within seconds; in the backtest
-# 30% lost far less. Wider stops mean fewer shares for the same dollar risk.
-ORB_STOP_ATR_FRACTION = 0.30
+# Stop-loss distance as a fraction of the stock's 14-day ATR, by start date:
+# each entry applies from its date until the next one. The paper used 10%,
+# but live trades at 10% were stopped out within seconds. In the backtest 30%
+# and 50% lost far less, so each gets 2 market days live before we compare.
+# Wider stops mean fewer shares for the same dollar risk.
+ORB_STOP_ATR_FRACTIONS = {
+    "2026-10-28": 0.10,
+    "2026-11-04": 0.30,  # Wed Nov 4 and Thu Nov 5
+    "2026-11-06": 0.50,  # Fri Nov 6 and Mon Nov 9, then decide
+}
 # Skip stocks opening at or under this price: their stops end up barely
 # wider than the bid-ask spread.
 ORB_MIN_PRICE = 10
