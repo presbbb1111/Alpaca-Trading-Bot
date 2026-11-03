@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import requests
 import yfinance as yf
 from alpaca.common.exceptions import APIError
 from alpaca.trading.client import TradingClient
@@ -146,11 +147,13 @@ def market_open_today(client):
 
 
 def shares_held(client, symbol):
+    """Returns (shares the account holds, shares not tied up in open orders)."""
     try:
         # Alpaca lists crypto positions without the slash (BTCUSD).
-        return float(client.get_open_position(symbol.replace("/", "")).qty)
+        position = client.get_open_position(symbol.replace("/", ""))
+        return float(position.qty), float(position.qty_available)
     except APIError:
-        return 0.0
+        return 0.0, 0.0
 
 
 def place_order(client, symbol, side, qty=None, notional=None, seconds=30):
@@ -169,11 +172,18 @@ def place_order(client, symbol, side, qty=None, notional=None, seconds=30):
         )
     )
     log.info(f"Order submitted: {side.value} {qty or '$' + str(notional)} {symbol} (id {order.id})")
-    for _ in range(seconds):
-        if order.status in DONE_STATUSES:
-            break
-        time.sleep(1)
-        order = client.get_order_by_id(order.id)
+    try:
+        for _ in range(seconds):
+            if order.status in DONE_STATUSES:
+                break
+            time.sleep(1)
+            order = client.get_order_by_id(order.id)
+    except (APIError, requests.RequestException) as e:
+        # The order is already in. Losing the connection now must not lose
+        # track of it: callers treat it as still filling, and settle_pending()
+        # records the real fill later.
+        log.warning(f"Order {order.id}: lost contact while waiting for the fill ({e}), will check again later")
+        return order
     log.info(f"Order {order.id}: {order.status.value}, filled {order.filled_qty} at {order.filled_avg_price}")
     return order
 
@@ -215,11 +225,15 @@ def sell(client, symbol, key, name, positions):
     held = positions[key]
     # Never sell more than the account actually holds. (Alpaca takes crypto
     # fees out of the coins bought, so the account can hold slightly less.)
-    qty = min(held["shares"], shares_held(client, symbol))
-    if qty <= 0:
+    total, available = shares_held(client, symbol)
+    if total <= 0:
         log.warning(f"{name}: expected {held['shares']:g} but the account holds none")
         positions.pop(key)
         return
+    if available <= 0:
+        log.warning(f"{name}: all {total:g} {symbol} are tied up in other open orders, will try again next run")
+        return
+    qty = min(held["shares"], available)
     order = place_order(client, symbol, OrderSide.SELL, qty=qty)
     if order.status in FAILED_STATUSES:
         journal(f"{name}: SELL {qty:g} {symbol} FAILED ({order.status.value})", alert="error")
@@ -265,7 +279,11 @@ def settle_pending(client, positions, wait_seconds=0):
         pending = [(symbol, key, held) for symbol, by_strategy in positions.items()
                    for key, held in list(by_strategy.items()) if held.get("pending")]
         for symbol, key, held in pending:
-            order = client.get_order_by_id(held["order_id"])
+            try:
+                order = client.get_order_by_id(held["order_id"])
+            except (APIError, requests.RequestException) as e:
+                log.warning(f"Couldn't check order {held['order_id']} ({e}), will try again")
+                continue
             if order.status not in DONE_STATUSES:
                 continue
             name = f"{symbol} {STRATEGIES[key][0]}"
