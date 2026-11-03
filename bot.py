@@ -11,11 +11,13 @@ written to trades.txt.
 """
 
 import argparse
+import functools
 import json
 import logging
 import os
 import sys
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -27,6 +29,8 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import OrderSide, OrderStatus, TimeInForce
 from alpaca.trading.requests import GetCalendarRequest, MarketOrderRequest
 from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 import config
 import notify
@@ -37,6 +41,9 @@ POSITIONS_FILE = BOT_DIR / "positions.json"
 MARKET_TZ = ZoneInfo("America/New_York")
 DONE_STATUSES = (OrderStatus.FILLED, OrderStatus.REJECTED, OrderStatus.CANCELED, OrderStatus.EXPIRED)
 FAILED_STATUSES = (OrderStatus.REJECTED, OrderStatus.CANCELED, OrderStatus.EXPIRED)
+# (connect, read) seconds for every Alpaca request, so a dead connection fails
+# fast and gets retried instead of hanging for 15 minutes.
+REQUEST_TIMEOUT = (10, 30)
 
 log = logging.getLogger("bot")
 
@@ -121,7 +128,14 @@ def get_client():
         log.error("Missing Alpaca keys. Fill in ALPACA_API_KEY and ALPACA_SECRET_KEY in .env")
         sys.exit(1)
 
-    return TradingClient(api_key, secret_key, paper=paper)
+    client = TradingClient(api_key, secret_key, paper=paper)
+    # Retry dropped connections with backoff instead of failing the run.
+    # Lookups are always safe to retry. An order is only retried if it never
+    # reached Alpaca; place_order() handles one that may have.
+    retries = Retry(total=5, backoff_factor=2, allowed_methods={"GET", "DELETE"}, status_forcelist=())
+    client._session.mount("https://", HTTPAdapter(max_retries=retries))
+    client._session.request = functools.partial(client._session.request, timeout=REQUEST_TIMEOUT)
+    return client
 
 
 def market_open_today(client):
@@ -161,16 +175,25 @@ def place_order(client, symbol, side, qty=None, notional=None, seconds=30):
 
     Pass `qty` for a number of shares/coins or `notional` for a dollar amount.
     """
-    order = client.submit_order(
-        MarketOrderRequest(
-            symbol=symbol,
-            qty=qty,
-            notional=notional,
-            side=side,
-            # Crypto orders can't be day orders; good-til-canceled is the norm.
-            time_in_force=TimeInForce.GTC if is_crypto(symbol) else TimeInForce.DAY,
-        )
+    request = MarketOrderRequest(
+        symbol=symbol,
+        qty=qty,
+        notional=notional,
+        side=side,
+        # Crypto orders can't be day orders; good-til-canceled is the norm.
+        time_in_force=TimeInForce.GTC if is_crypto(symbol) else TimeInForce.DAY,
+        client_order_id=f"bot-{uuid.uuid4()}",
     )
+    try:
+        order = client.submit_order(request)
+    except requests.RequestException:
+        # The connection dropped after the order was sent, so it may have gone
+        # through. Look it up by our own id rather than sending it twice.
+        try:
+            order = client.get_order_by_client_id(request.client_order_id)
+        except APIError:
+            raise RuntimeError(f"{symbol}: lost the connection placing the order, and Alpaca has no record of it")
+        log.warning(f"{symbol}: connection dropped while placing the order, but it went through")
     log.info(f"Order submitted: {side.value} {qty or '$' + str(notional)} {symbol} (id {order.id})")
     try:
         for _ in range(seconds):
