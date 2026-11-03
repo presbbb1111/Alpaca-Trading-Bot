@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import ssl
+import time
 import urllib.request
 
 import certifi
@@ -41,9 +42,14 @@ def send(title, description="", kind="info", fields=None):
         # Discord rejects Python's default user agent.
         headers={"Content-Type": "application/json", "User-Agent": "TradingBot/1.0"},
     )
-    try:
-        urllib.request.urlopen(request, timeout=10, context=SSL_CONTEXT)
-        return True
-    except Exception as e:
-        log.warning(f"Discord alert failed: {e}")
-        return False
+    # Retry a few times: a brief network drop (or the Mac just waking up)
+    # shouldn't lose the alert.
+    for attempt in range(3):
+        try:
+            urllib.request.urlopen(request, timeout=10, context=SSL_CONTEXT)
+            return True
+        except Exception as e:
+            if attempt == 2:
+                log.warning(f"Discord alert failed: {e}")
+                return False
+            time.sleep(5 * (attempt + 1))

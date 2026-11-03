@@ -9,7 +9,7 @@ Paper money only. Not financial advice.
 All times are Eastern.
 
 - **9:30 AM daily:** `bot.py` checks each strategy and buys or sells if a signal changed. Stocks only trade on market days. Crypto trades every day.
-- **9:15 AM to 3:55 PM, market days:** `orb_live.py` runs the opening range breakout experiment. It's closed out before 4 PM.
+- **8:30 AM to 3:55 PM, market days:** `orb_live.py` runs the opening range breakout experiment. It's closed out before 4 PM. Keep the Mac plugged in with the lid open during market hours, or it can sleep through the open or the close.
 - **4:15 PM daily:** `summary.py` posts the day's results to Discord.
 - **Always:** `dashboard.py` serves a dashboard at http://localhost:8050.
 
@@ -24,7 +24,7 @@ Each strategy gets $3,000 per symbol and keeps track of its own shares.
 
 The stocks are AAPL, MSFT, NVDA and SPY. The coins are BTC and ETH.
 
-**ORB experiment:** at 9:35 it picks the 20 stocks with the most unusual opening volume. It then trades whichever way they break out of the first 5 minutes, with a tight stop. Nothing is held overnight. I'm running it to see what real fills look like, because the backtest couldn't tell me.
+**ORB experiment:** at 9:35 it picks the 20 stocks with the most unusual opening volume. It then trades whichever way they break out of the first 5 minutes, with a tight stop held by Alpaca. If it can't place the trades by 9:37, it skips the day. Nothing is meant to be held overnight: if the Mac sleeps through the close, the stops stay in place and the next run closes those positions at the open. I'm running it to see what real fills look like, because the backtest couldn't tell me.
 
 ## Setup
 
