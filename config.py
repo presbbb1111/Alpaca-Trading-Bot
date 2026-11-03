@@ -25,6 +25,13 @@ ORB_ENABLED = True
 # Money the experiment sizes its trades from: 1% of this at risk per trade,
 # and at most 4x this in total positions at once (intraday only).
 ORB_CAPITAL = 25_000
+# Stop-loss distance as a fraction of the stock's 14-day ATR. The paper used
+# 10%, but live trades at 10% were stopped out within seconds; in the backtest
+# 30% lost far less. Wider stops mean fewer shares for the same dollar risk.
+ORB_STOP_ATR_FRACTION = 0.30
+# Skip stocks opening at or under this price: their stops end up barely
+# wider than the bid-ask spread.
+ORB_MIN_PRICE = 10
 # "iex" is the free plan's live data (one exchange, a stand-in for the whole
 # market). Switch to "sip" only with Alpaca's Algo Trader Plus subscription.
 ORB_FEED = "iex"

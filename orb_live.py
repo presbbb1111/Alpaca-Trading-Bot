@@ -4,12 +4,14 @@ Same rules as orb_stocks_in_play.py (the backtest), run for real on the paper
 account so we can see actual fills:
 
   9:15 ET  Build today's list: stocks with 14-day average volume >= 1M shares
-           and ATR > $0.50, and their average first-5-minute volume.
+           ATR > $0.50 and price over config.ORB_MIN_PRICE, and their average
+           first-5-minute volume.
   9:35 ET  Rank by relative volume in the first 5 minutes, take the top 20.
            Place a buy stop at the opening range high (up bar) or a sell-short
            stop at the low (down bar).
-  All day  As soon as an entry fills, place a stop-loss 10% of ATR away. The
-           stop is GTC and held by Alpaca, so it survives a crash or a sleeping Mac.
+  All day  As soon as an entry fills, place a stop-loss config.ORB_STOP_ATR_FRACTION
+           of ATR away. The stop is GTC and held by Alpaca, so it survives a
+           crash or a sleeping Mac.
   15:55 ET Cancel anything unfilled and close every ORB position.
 
 Reliability:
@@ -57,8 +59,8 @@ from dotenv import load_dotenv
 import config
 import notify
 from bot import BOT_DIR, get_client
-from orb_stocks_in_play import (LOOKBACK, MAX_LEVERAGE, MIN_ATR, MIN_AVG_VOLUME, MIN_PRICE, MIN_RELATIVE_VOLUME,
-                                NOT_COMMON_STOCK, RISK_PER_TRADE, STOP_ATR_FRACTION, TOP_N, data_client, keys)
+from orb_stocks_in_play import (LOOKBACK, MAX_LEVERAGE, MIN_ATR, MIN_AVG_VOLUME, MIN_RELATIVE_VOLUME,
+                                NOT_COMMON_STOCK, RISK_PER_TRADE, TOP_N, data_client, keys)
 
 ET = ZoneInfo("America/New_York")
 LIVE_DIR = BOT_DIR / "data" / "orb_live"
@@ -213,7 +215,7 @@ def prepare(trading, data, day):
         prev_close = g.close.shift(1)
         true_range = pd.concat([g.high - g.low, (g.high - prev_close).abs(), (g.low - prev_close).abs()], axis=1).max(axis=1)
         atr, avg_volume = true_range.tail(LOOKBACK).mean(), g.volume.tail(LOOKBACK).mean()
-        if avg_volume >= MIN_AVG_VOLUME and atr > MIN_ATR and g.close.iloc[-1] > MIN_PRICE * 0.8:
+        if avg_volume >= MIN_AVG_VOLUME and atr > MIN_ATR and g.close.iloc[-1] > config.ORB_MIN_PRICE * 0.8:
             stats[symbol] = {"atr": float(atr), "shortable": shortable[symbol]}
     log.info(f"{len(stats)} pass the volume and ATR filters")
 
@@ -240,12 +242,12 @@ def pick(data, prep, day):
         info = prep[row.symbol]
         direction = 1 if row.close > row.open else -1 if row.close < row.open else 0
         relative_volume = row.volume / info["avg_open_volume"]
-        if (row.open > MIN_PRICE and direction and relative_volume >= MIN_RELATIVE_VOLUME
+        if (row.open > config.ORB_MIN_PRICE and direction and relative_volume >= MIN_RELATIVE_VOLUME
                 and (direction == 1 or info["shortable"])):
             candidates.append({
                 "symbol": row.symbol, "direction": direction, "relative_volume": round(relative_volume, 2),
                 "trigger": round(row.high if direction == 1 else row.low, 2), "atr": info["atr"],
-                "risk": STOP_ATR_FRACTION * info["atr"],
+                "risk": config.ORB_STOP_ATR_FRACTION * info["atr"],
             })
     candidates.sort(key=lambda c: c["relative_volume"], reverse=True)
     picks = candidates[:TOP_N]
@@ -541,7 +543,7 @@ def run(dry_run):
         picks = pick(data, prep, day)
         for p in picks:
             log.info(f"would {'buy' if p['direction'] == 1 else 'short'} {p['qty']} {p['symbol']} on a break of "
-                     f"{p['trigger']:.2f}, stop {STOP_ATR_FRACTION:.0%} of ATR (${p['risk']:.2f}), relative volume {p['relative_volume']:.1f}x")
+                     f"{p['trigger']:.2f}, stop {config.ORB_STOP_ATR_FRACTION:.0%} of ATR (${p['risk']:.2f}), relative volume {p['relative_volume']:.1f}x")
         print(f"{len(prep)} candidates, {len(picks)} picks for {day} (dry run, no orders)")
         for p in picks:
             print(f"  {p['symbol']:<6}{'LONG ' if p['direction'] == 1 else 'SHORT'} {p['qty']:>5} on a break of {p['trigger']:>8.2f}"
