@@ -6,8 +6,9 @@ account so we can see actual fills:
   9:15 ET  Build today's list: stocks with 14-day average volume >= 1M shares
            ATR > $0.50 and price over config.ORB_MIN_PRICE, and their average
            first-5-minute volume.
-  9:35 ET  Rank by relative volume in the first 5 minutes, take the top 20.
-           Place a buy stop at the opening range high (up bar) or a sell-short
+  9:35 ET  Rank by relative volume in the first 5 minutes, take the top
+           config.ORB_TOP_N, and drop any whose stop would be under
+           config.ORB_MIN_STOP_DOLLARS. Place a buy stop at the opening range high (up bar) or a sell-short
            stop at the low (down bar).
   All day  As soon as an entry fills, place a stop-loss the day's share of ATR
            away (config.ORB_STOP_ATR_FRACTIONS). The stop is GTC and held by
@@ -255,8 +256,11 @@ def pick(data, prep, day):
                 "risk": stop_fraction(day) * info["atr"],
             })
     candidates.sort(key=lambda c: c["relative_volume"], reverse=True)
-    picks = candidates[:TOP_N]
+    # Only the strongest few, and only those whose stop is wide enough that
+    # slippage (a roughly fixed number of cents) doesn't eat the whole trade.
+    picks = [c for c in candidates[:config.ORB_TOP_N] if c["risk"] >= config.ORB_MIN_STOP_DOLLARS]
     for p in picks:
+        # Same position cap as with 20 picks, so each trade's size doesn't change.
         per_trade_cap = config.ORB_CAPITAL * MAX_LEVERAGE / TOP_N
         p["qty"] = int(math.floor(min(config.ORB_CAPITAL * RISK_PER_TRADE / p["risk"], per_trade_cap / p["trigger"])))
     return [p for p in picks if p["qty"] >= 1]
@@ -461,9 +465,11 @@ def report(day, picks, rows):
     avg = lambda xs: sum(xs) / len(xs) if xs else float("nan")
 
     lines = [f"**Profit/loss:** {'+' if pnl >= 0 else '-'}${abs(pnl):,.2f} ({pnl / config.ORB_CAPITAL:+.2%} of ${config.ORB_CAPITAL:,})",
-             f"**Trades:** {len(rows)} of {len(picks)} picks broke out  |  **Wins:** {wins}",
-             f"**Slippage:** entries {avg(entry_slips):+.1f}¢/share, stops {avg(stop_slips):+.1f}¢/share "
-             f"(positive = worse than the trigger; the backtest assumed 1¢)", ""]
+             f"**Trades:** {len(rows)} of {len(picks)} picks broke out  |  **Wins:** {wins}"]
+    if rows:
+        lines.append(f"**Slippage:** entries {avg(entry_slips):+.1f}¢/share, stops {avg(stop_slips):+.1f}¢/share "
+                     f"(positive = worse than the trigger; the backtest assumed 1¢)")
+    lines.append("")
     for r in sorted(rows, key=lambda r: r["pnl"] if r["pnl"] != "" else 0, reverse=True):
         lines.append(f"{'🟢' if r['pnl'] != '' and r['pnl'] > 0 else '🔴'} {r['symbol']} {r['direction']} {r['qty']:g} "
                      f"@ {r['entry_fill']:.2f} -> {r['exit_fill']:.2f} ({r['exit']})  {r['pnl']:+,.2f}")

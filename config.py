@@ -38,6 +38,13 @@ ORB_STOP_ATR_FRACTIONS = {
 # Skip stocks opening at or under this price: their stops end up barely
 # wider than the bid-ask spread.
 ORB_MIN_PRICE = 10
+# Only the top few picks by relative volume (the backtest uses 20). The
+# strongest picks have about twice the edge per trade.
+ORB_TOP_N = 5
+# Skip picks whose stop would be closer than this many dollars per share.
+# Slippage is about 15-20 cents per share each way no matter the stock, so on
+# a 20-cent stop it eats the whole trade; on a $2 stop it's about a fifth.
+ORB_MIN_STOP_DOLLARS = 2
 # "iex" is the free plan's live data (one exchange, a stand-in for the whole
 # market). Switch to "sip" only with Alpaca's Algo Trader Plus subscription.
 ORB_FEED = "iex"
