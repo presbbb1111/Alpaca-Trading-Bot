@@ -14,6 +14,7 @@ from datetime import datetime
 
 import pandas as pd
 import yfinance as yf
+from alpaca.trading.requests import GetCalendarRequest
 from dotenv import load_dotenv
 
 import config
@@ -102,6 +103,11 @@ def build(client):
         f"📈 **Open profit/loss:** {money(unrealized)}",
     ]
     try:
+        # On weekends and holidays SPY's last move is from the last trading
+        # day, so there's nothing to compare today against.
+        today = datetime.now(MARKET_TZ).date()
+        if not client.get_calendar(GetCalendarRequest(start=today, end=today)):
+            raise LookupError("market closed today")
         spy = benchmark_change()
         mine = day_change / last_equity
         lines.append(f"📊 **vs the market:** S&P 500 (SPY) {pct(spy)} today, you {pct(mine)} "
