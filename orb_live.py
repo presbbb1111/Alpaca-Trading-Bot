@@ -241,6 +241,8 @@ def stop_fraction(day):
 
 
 def pick(data, prep, day):
+    """Today's picks, plus the top picks dropped because their stop is too
+    small (so a day with no trades can say why)."""
     t = datetime.combine(day, dtime(9, 30), ET)
     first = bars(data, list(prep), TimeFrame(5, TimeFrameUnit.Minute), t, t + timedelta(seconds=59), feed())
     candidates = []
@@ -258,12 +260,20 @@ def pick(data, prep, day):
     candidates.sort(key=lambda c: c["relative_volume"], reverse=True)
     # Only the strongest few, and only those whose stop is wide enough that
     # slippage (a roughly fixed number of cents) doesn't eat the whole trade.
-    picks = [c for c in candidates[:config.ORB_TOP_N] if c["risk"] >= config.ORB_MIN_STOP_DOLLARS]
+    top = candidates[:config.ORB_TOP_N]
+    picks = [c for c in top if c["risk"] >= config.ORB_MIN_STOP_DOLLARS]
+    skipped = [c for c in top if c["risk"] < config.ORB_MIN_STOP_DOLLARS]
+    for c in skipped:
+        log.info(f"{c['symbol']}: skipped, {skipped_text(c)} (minimum ${config.ORB_MIN_STOP_DOLLARS:g})")
     for p in picks:
         # Same position cap as with 20 picks, so each trade's size doesn't change.
         per_trade_cap = config.ORB_CAPITAL * MAX_LEVERAGE / TOP_N
         p["qty"] = int(math.floor(min(config.ORB_CAPITAL * RISK_PER_TRADE / p["risk"], per_trade_cap / p["trigger"])))
-    return [p for p in picks if p["qty"] >= 1]
+    return [p for p in picks if p["qty"] >= 1], skipped
+
+
+def skipped_text(c):
+    return f"{c['symbol']} {'long' if c['direction'] == 1 else 'short'} ${c['risk']:.2f} stop"
 
 
 def order_id(day, symbol, kind):
@@ -551,11 +561,13 @@ def run(dry_run):
     log.info(f"{len(prep)} candidates for {day}")
 
     if dry_run:
-        picks = pick(data, prep, day)
+        picks, skipped = pick(data, prep, day)
         for p in picks:
             log.info(f"would {'buy' if p['direction'] == 1 else 'short'} {p['qty']} {p['symbol']} on a break of "
                      f"{p['trigger']:.2f}, stop {stop_fraction(day):.0%} of ATR (${p['risk']:.2f}), relative volume {p['relative_volume']:.1f}x")
         print(f"{len(prep)} candidates, {len(picks)} picks for {day} (dry run, no orders)")
+        if skipped:
+            print(f"  skipped, stop under ${config.ORB_MIN_STOP_DOLLARS:g}: {', '.join(map(skipped_text, skipped))}")
         for p in picks:
             print(f"  {p['symbol']:<6}{'LONG ' if p['direction'] == 1 else 'SHORT'} {p['qty']:>5} on a break of {p['trigger']:>8.2f}"
                   f"   stop ${p['risk']:.2f} away   relative volume {p['relative_volume']:.1f}x")
@@ -565,7 +577,7 @@ def run(dry_run):
         skip_day(day, f"Setup didn't finish until {datetime.now(ET):%H:%M} ET, too late to trade the open.")
         return
     wait_until(datetime.combine(day, dtime(9, 35, 10), ET))
-    picks = pick(data, prep, day)
+    picks, skipped = pick(data, prep, day)
     if too_late():
         skip_day(day, f"Picks weren't ready until {datetime.now(ET):%H:%M} ET, too late to trade the open.")
         return
@@ -575,8 +587,11 @@ def run(dry_run):
     lines = [f"{'🔼' if p['direction'] == 1 else '🔽'} **{p['symbol']}** {'long' if p['direction'] == 1 else 'short'} "
              f"{p['qty']} on a break of ${p['trigger']:.2f} (relative volume {p['relative_volume']:.1f}x)"
              + ("" if p.get("entry_type") == "stop" else f" - {p.get('entry_type')}") for p in picks]
-    alert(f"{len(picks)} stocks in play", "\n".join(lines) or "No stocks qualified today.")
-    journal(day, f"{len(picks)} picks placed (stop {stop_fraction(day):.0%} of ATR): {', '.join(p['symbol'] for p in picks)}")
+    skip_note = (f"Skipped, stop under ${config.ORB_MIN_STOP_DOLLARS:g}: {', '.join(map(skipped_text, skipped))}"
+                 if skipped else "")
+    alert(f"{len(picks)} stocks in play", "\n".join(lines + [skip_note]).strip() or "No stocks qualified today.")
+    journal(day, f"{len(picks)} picks placed (stop {stop_fraction(day):.0%} of ATR): {', '.join(p['symbol'] for p in picks) or 'none'}"
+                 + (f". {skip_note}" if skip_note else ""))
 
     finish(trading, picks, day, close_time, state_path)
 
