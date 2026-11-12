@@ -49,6 +49,27 @@ ORB_MIN_STOP_DOLLARS = 2
 # market). Switch to "sip" only with Alpaca's Algo Trader Plus subscription.
 ORB_FEED = "iex"
 
+# --- Trades you approve (approvals.py) ---
+# At 10:15 AM ET it scans every US stock for 15-minute opening-range
+# breakouts (long only), plans a stop at the range midpoint and a 2x target,
+# replays the rest of the day 10,000 times, and queues the best few on the
+# dashboard. Nothing is bought until you press Approve.
+APPROVALS_ENABLED = True
+APPROVAL_SCAN_TIME = "10:15"  # New York time
+APPROVAL_MAX_PROPOSALS = 5  # trades shown for approval each day
+APPROVAL_MAX_LOSS = 100  # dollars lost if a trade hits its stop
+APPROVAL_MAX_DAILY_LOSS = 300  # no new approvals once the day is down this much
+APPROVAL_MAX_TRADES = 3  # approved trades per day
+APPROVAL_MAX_ORDER = 10_000  # largest position, in dollars
+APPROVAL_MIN_PRICE = 10
+# Skip trades whose stop is closer than this many dollars a share: on a
+# tight stop, slippage of a few cents a share each way eats most of the trade.
+APPROVAL_MIN_STOP = 1.0
+APPROVAL_TARGET_R = 2  # target = entry + 2x the stop distance
+APPROVAL_MIN_REWARD_RISK = 1.0  # refuse an approval once the price has run too close to the target
+APPROVAL_LAST_ENTRY = "15:30"  # pending trades expire at this time
+APPROVAL_FLAT_BY = "15:55"  # everything approved is closed by this time
+
 # --- Crypto ---
 # Traded every day, weekends included. Use Alpaca's symbol format (BTC/USD).
 CRYPTO_SYMBOLS = ["BTC/USD", "ETH/USD"]

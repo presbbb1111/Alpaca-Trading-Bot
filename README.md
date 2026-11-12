@@ -10,8 +10,9 @@ All times are Eastern.
 
 - **9:30 AM daily:** `bot.py` checks each strategy and buys or sells if a signal changed. Stocks only trade on market days. Crypto trades every day.
 - **8:30 AM to 3:55 PM, market days:** `orb_live.py` runs the opening range breakout experiment. It's closed out before 4 PM. Keep the Mac plugged in with the lid open during market hours, or it can sleep through the open or the close.
+- **9:20 AM to 3:55 PM, market days:** `approvals.py` finds trades for me to approve (see below).
 - **4:15 PM daily:** `summary.py` posts the day's results to Discord.
-- **Always:** `dashboard.py` serves a dashboard at http://localhost:8050.
+- **Always:** `dashboard.py` serves a dashboard at http://localhost:8050. My phone can open it on the same Wi-Fi at `http://<Mac name>.local:8050` with the password in `.env`.
 
 ## Strategies
 
@@ -25,6 +26,8 @@ Each strategy gets $3,000 per symbol and keeps track of its own shares.
 The stocks are AAPL, MSFT, NVDA and SPY. The coins are BTC and ETH.
 
 **ORB experiment:** at 9:35 it picks the 20 stocks with the most unusual opening volume. It then trades whichever way they break out of the first 5 minutes, with a tight stop held by Alpaca. If it can't place the trades by 9:37, it skips the day. Nothing is meant to be held overnight: if the Mac sleeps through the close, the stops stay in place and the next run closes those positions at the open. I'm running it to see what real fills look like, because the backtest couldn't tell me.
+
+**Trades I approve:** at 10:15 it scans every US stock for a 5-minute close above its first 15 minutes' high. For each one it puts the stop halfway down that range and the target at twice the risk, then replays the rest of the day 10,000 times from the stock's last 60 days. The best few show up on the dashboard and in Discord, sized so the stop loses about $100. Nothing is bought until I tap Approve. Approving re-prices the trade, checks the limits (3 trades and $300 of losses a day) and places one order with the stop and target attached. Everything is sold by 3:55. The scanner, stop planner and replay tools come from Jake Schincariol's [Day Trader skill pack](https://github.com/Jakeschincariol/day-trader-skill) (MIT), copied into `vendor/day_trader/`.
 
 ## Setup
 
@@ -56,6 +59,7 @@ The plist files use this folder's full path and assume the Mac is on Central tim
 
 ```bash
 .venv/bin/python summary.py --print       # preview the daily summary
+.venv/bin/python approvals.py --replay 2026-11-12   # build a past day's trades to approve, as a test (no orders)
 .venv/bin/python backtest.py              # backtest the strategies vs buy and hold
 .venv/bin/python orb_backtest.py          # backtest ORB on QQQ
 .venv/bin/python orb_stocks_in_play.py    # backtest ORB on stocks in play (big download)

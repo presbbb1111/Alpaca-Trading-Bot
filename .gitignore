@@ -22,3 +22,7 @@ orb_fills.csv
 
 # Daily reviews and proposals (personal P/L)
 reviews/
+
+# Trades you approve: daily state and journal (personal P/L)
+approvals/
+approval_trades.txt

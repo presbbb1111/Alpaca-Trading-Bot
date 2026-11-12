@@ -2,24 +2,33 @@
 
     python dashboard.py
 
-View-only: it reads the Alpaca account and the bot's files and never places
-orders. It only listens on this Mac (127.0.0.1). The scheduler keeps it
-running in the background; see launchd/com.presleybarr.tradingbot.dashboard.plist.
+It reads the Alpaca account and the bot's files. The one thing it can do is
+approve or deny the trades approvals.py proposes; approving places that one
+order (see approvals.py).
+
+It listens on this Mac and on your Wi-Fi, so you can open it from your phone
+at http://<this Mac's name>.local:8050. Anything not on this Mac has to log
+in with DASHBOARD_PASSWORD from .env; with no password set, only this Mac can
+open it. The scheduler keeps it running in the background; see
+launchd/com.presleybarr.tradingbot.dashboard.plist.
 """
 
+import hmac
 import json
 import logging
+import os
 import re
 import subprocess
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 from alpaca.trading.requests import GetPortfolioHistoryRequest
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory, session
 
+import approvals
 import config
 from bot import BOT_DIR, MARKET_TZ, fetch_prices, get_client, is_crypto, load_positions, previous_close_equity
 from strategies import STRATEGIES, rsi
@@ -30,11 +39,16 @@ JOBS = {
     "Daily bot": ("com.presleybarr.tradingbot", "9:30 AM ET, every day"),
     "ORB experiment": ("com.presleybarr.tradingbot.orb", "9:15 AM ET, market days"),
     "Daily summary": ("com.presleybarr.tradingbot.summary", "4:15 PM ET, every day"),
+    "Trades to approve": ("com.presleybarr.tradingbot.approvals", "9:20 AM ET, scan at 10:15, market days"),
 }
 
 app = Flask(__name__, static_folder=str(BOT_DIR / "web"), static_url_path="")
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 load_dotenv(BOT_DIR / ".env")
+PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
+app.secret_key = os.environ.get("DASHBOARD_SECRET") or os.urandom(32)
+app.config.update(SESSION_COOKIE_SAMESITE="Strict", SESSION_COOKIE_HTTPONLY=True,
+                  PERMANENT_SESSION_LIFETIME=timedelta(days=30))
 _client = None
 _price_cache = {}
 
@@ -266,6 +280,7 @@ def health_section():
     last_runs = {
         "Daily bot": last_log_time(logs / "bot.log", r"Running on (?!.*dry run)"),
         "ORB experiment": last_log_time(logs / "orb.log", r"Live run for"),
+        "Trades to approve": last_log_time(logs / "approvals.log", r"Live run for"),
         "Daily summary": (to_et(datetime.fromtimestamp((logs / "summary.out.log").stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S"))
                           if (logs / "summary.out.log").exists() else None),
     }
@@ -281,7 +296,7 @@ def health_section():
         })
     today = datetime.now().strftime("%Y-%m-%d")
     errors = []
-    for log_name in ("bot.log", "orb.log"):
+    for log_name in ("bot.log", "orb.log", "approvals.log"):
         path = logs / log_name
         if path.exists():
             errors += [line[20:180] for line in path.read_text().splitlines()[-3000:]
@@ -292,6 +307,86 @@ def health_section():
 def _uid():
     import os
     return os.getuid()
+
+
+# --- Access: this Mac always, other devices with the password ----------------
+
+def on_this_mac():
+    return request.remote_addr in ("127.0.0.1", "::1")
+
+
+@app.before_request
+def check_access():
+    if on_this_mac() or session.get("ok") or request.path in ("/login", "/login.html"):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Log in first."}), 401
+    return redirect("/login")
+
+
+@app.get("/login")
+def login_page():
+    return send_from_directory(app.static_folder, "login.html")
+
+
+@app.post("/login")
+def login():
+    given = request.form.get("password", "")
+    if PASSWORD and hmac.compare_digest(given.encode(), PASSWORD.encode()):
+        session.permanent = True
+        session["ok"] = True
+        return redirect("/")
+    time.sleep(1)  # slow down guessing
+    return redirect("/login?wrong=1" if PASSWORD else "/login?nopassword=1")
+
+
+# --- Trades to approve -------------------------------------------------------
+
+def approvals_section():
+    day = datetime.now(MARKET_TZ).date()
+    state = approvals.load(day) or {"date": str(day), "status": "none", "proposals": []}
+    placed = [p for p in state["proposals"] if p["status"] == "placed"]
+    if not state.get("dry_run"):
+        for p in placed:
+            if "result" not in p:
+                p["live"] = safe(lambda p=p: approvals.trade_result(client(), p, day))
+    pl = sum((p.get("result") or p.get("live") or {}).get("pl", 0.0) or 0.0 for p in placed)
+    return {
+        **state,
+        "limits": {"trades": len(placed), "max_trades": config.APPROVAL_MAX_TRADES, "day_pl": round(pl, 2),
+                   "max_daily_loss": config.APPROVAL_MAX_DAILY_LOSS, "max_loss": config.APPROVAL_MAX_LOSS},
+        "scan_time": config.APPROVAL_SCAN_TIME, "last_entry": config.APPROVAL_LAST_ENTRY,
+        "flat_by": config.APPROVAL_FLAT_BY, "enabled": config.APPROVALS_ENABLED,
+    }
+
+
+def same_site_post():
+    """Only the dashboard's own page may approve: it sends a custom header,
+    which another website can't add to a request aimed here."""
+    origin = request.headers.get("Origin")
+    return (request.headers.get("X-Dashboard") == "1"
+            and (origin is None or origin.split("://", 1)[-1] == request.host))
+
+
+@app.get("/api/approvals")
+def approvals_api():
+    return jsonify(safe(approvals_section))
+
+
+@app.post("/api/approvals/<pid>/<action>")
+def approvals_action(pid, action):
+    if not same_site_post() or action not in ("approve", "deny"):
+        return jsonify({"ok": False, "message": "Not allowed."}), 403
+    day = datetime.now(MARKET_TZ).date()
+    try:
+        if action == "approve":
+            ok, message = approvals.approve(day, pid, client())
+        else:
+            ok, message = approvals.deny(day, pid)
+    except Exception as e:
+        logging.exception("approval")
+        ok, message = False, f"Something went wrong: {str(e)[:200]}"
+    return jsonify({"ok": ok, "message": message})
 
 
 # --- Routes -----------------------------------------------------------------
@@ -337,5 +432,5 @@ def history():
 
 
 if __name__ == "__main__":
-    print(f"Dashboard running at http://localhost:{PORT}")
-    app.run(host="127.0.0.1", port=PORT, threaded=True)
+    print(f"Dashboard running at http://localhost:{PORT}, and on your Wi-Fi at {approvals.dashboard_url()}")
+    app.run(host="0.0.0.0", port=PORT, threaded=True)

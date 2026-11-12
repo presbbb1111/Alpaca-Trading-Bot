@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trading Login</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg-1: #eef2f9; --bg-2: #f6f1fb; --glass: rgba(255, 255, 255, 0.72); --border: rgba(0, 0, 0, 0.08);
+  --text-1: #1d1d1f; --text-3: #86868b; --accent: #007aff; --down: #d70015; --field: rgba(118, 118, 128, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg-1: #0b0c10; --bg-2: #14101c; --glass: rgba(44, 44, 48, 0.72); --border: rgba(255, 255, 255, 0.10);
+    --text-1: #f5f5f7; --text-3: #8e8e93; --accent: #0a84ff; --down: #ff453a; --field: rgba(118, 118, 128, 0.24);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-1: #0b0c10; --bg-2: #14101c; --glass: rgba(44, 44, 48, 0.72); --border: rgba(255, 255, 255, 0.10);
+  --text-1: #f5f5f7; --text-3: #8e8e93; --accent: #0a84ff; --down: #ff453a; --field: rgba(118, 118, 128, 0.24);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; color: var(--text-1);
+  background: linear-gradient(160deg, var(--bg-1), var(--bg-2)); -webkit-font-smoothing: antialiased;
+}
+form { width: 100%; max-width: 360px; padding: 28px 24px; border-radius: 24px; background: var(--glass); border: 0.5px solid var(--border); display: grid; gap: 14px; }
+h1 { margin: 0; font-size: 26px; letter-spacing: -0.03em; }
+p { margin: 0; font-size: 13.5px; color: var(--text-3); line-height: 1.4; }
+input { font: inherit; font-size: 16px; padding: 12px 14px; border-radius: 12px; border: 0; background: var(--field); color: var(--text-1); }
+button { font: inherit; font-size: 15px; font-weight: 650; padding: 12px; border-radius: 12px; border: 0; background: var(--accent); color: #fff; cursor: pointer; min-height: 44px; }
+.err { color: var(--down); font-size: 13px; }
+</style>
+</head>
+<body>
+<form method="post" action="/login">
+  <h1>Trading</h1>
+  <p>Enter the dashboard password (DASHBOARD_PASSWORD in the bot's .env file).</p>
+  <div class="err" id="err" hidden></div>
+  <input type="password" name="password" autocomplete="current-password" placeholder="Password" required autofocus>
+  <button type="submit">Log in</button>
+</form>
+<script>
+const q = new URLSearchParams(location.search), err = document.getElementById("err");
+if (q.has("wrong")) { err.textContent = "Wrong password."; err.hidden = false; }
+if (q.has("nopassword")) { err.textContent = "No password is set yet, so the dashboard only opens on the Mac itself. Add DASHBOARD_PASSWORD to .env and restart the dashboard."; err.hidden = false; }
+</script>
+</body>
+</html>

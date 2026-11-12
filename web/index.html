@@ -209,6 +209,34 @@ td.signal-cell { min-width: 170px; }
 .stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
 @media (max-width: 600px) { .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* Trades to approve */
+.limits { display: flex; gap: 8px; flex-wrap: wrap; }
+.banner { font-size: 12.5px; color: var(--warn); background: color-mix(in srgb, var(--warn-mark) 14%, transparent); border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
+.proposals { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+@media (max-width: 600px) { .proposals { grid-template-columns: 1fr; } }
+.prop { border-radius: 18px; padding: 14px 16px; background: var(--glass-strong); border: 0.5px solid var(--glass-border); display: grid; gap: 10px; min-width: 0; }
+.prop.done { opacity: 0.72; }
+.prop-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.prop-sym { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.prop-sub { font-size: 12.5px; color: var(--text-2); margin-top: 1px; }
+.prop-plan { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.prop-plan div { font-size: 11.5px; color: var(--text-3); }
+.prop-plan b { display: block; font-size: 14.5px; color: var(--text-1); font-weight: 650; font-variant-numeric: tabular-nums; }
+.odds { display: flex; gap: 2px; height: 10px; border-radius: 4px; overflow: hidden; }
+.odds span { display: block; height: 100%; }
+.odds .t { background: var(--up-mark); } .odds .n { background: var(--pill-cash); } .odds .s { background: var(--down-mark); }
+.odds-key { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-top: 6px; }
+.odds-key i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.prop-note { font-size: 12px; color: var(--text-3); line-height: 1.4; }
+.prop-actions { display: flex; gap: 8px; }
+.btn { flex: 1; border: 0; font: inherit; font-size: 14px; font-weight: 650; padding: 11px 14px; border-radius: 12px; cursor: pointer; min-height: 44px; }
+.btn.approve { background: var(--accent); color: #fff; }
+.btn.approve.armed { background: var(--up-mark); color: #04210d; }
+.btn.deny { background: var(--segment); color: var(--text-1); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.msg { font-size: 12.5px; }
+.msg.ok { color: var(--up); } .msg.bad { color: var(--down); }
+
 footer { margin-top: 22px; text-align: center; color: var(--text-3); font-size: 12px; }
 @media (max-width: 600px) { .wrap { padding: 20px 16px 40px; } h1 { font-size: 28px; } .hero-value { font-size: 44px; } }
 </style>
@@ -227,6 +255,11 @@ footer { margin-top: 22px; text-align: center; color: var(--text-3); font-size: 
   </header>
 
   <div class="grid">
+    <section class="card span-12" aria-label="Trades to approve">
+      <div class="card-head"><h2>Trades to approve</h2><div class="limits" id="appr-limits"></div></div>
+      <div id="approvals"><div class="empty">Loading…</div></div>
+    </section>
+
     <section class="card span-12" id="overview" aria-label="Account overview"></section>
 
     <section class="card span-8">
@@ -270,7 +303,7 @@ footer { margin-top: 22px; text-align: center; color: var(--text-3); font-size: 
     </section>
   </div>
 
-  <footer>View-only. Refreshes every 20 seconds. Nothing on this page can place a trade.</footer>
+  <footer>Refreshes every 20 seconds. The only thing this page can do is approve or deny the trades above.</footer>
 </div>
 
 <script>
@@ -490,6 +523,102 @@ function renderOrb(o) {
     </tr>`).join("")}</tbody></table></div>`;
 }
 
+// --- Trades to approve -----------------------------------------------------
+let appr = null, armed = null, armedTimer = null, busy = false;
+const messages = {};
+const pctx = (v) => Math.round(v * 100) + "%";
+const statusDot = { pending: "warn", placed: "accent", denied: "", expired: "", failed: "down" };
+const statusText = { pending: "Waiting", placed: "Bought", denied: "Denied", expired: "Expired", failed: "Failed" };
+const hm = (t) => { const [h, m] = t.split(":").map(Number); return `${(h + 11) % 12 + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+
+function propCard(p, a) {
+  const o = p.odds, h = p.history;
+  const done = p.status !== "pending";
+  const res = p.result || p.live;
+  let outcome = "";
+  if (p.status === "placed" && a.dry_run) outcome = `Test approval: ${p.qty} shares at ${usd(p.approved_price)}. No order was sent.`;
+  else if (p.status === "placed" && res && !res.error) {
+    if (!res.filled) outcome = "Order sent, waiting for the fill.";
+    else if (res.open) outcome = `Holding ${res.qty} @ ${usd(res.entry_fill)}${res.price ? ` · now ${usd(res.price)}` : ""} · <b class="${tone(res.pl)}">${signedUsd(res.pl)}</b>`;
+    else outcome = `${res.qty} @ ${usd(res.entry_fill)} → ${usd(res.exit_fill)} (${esc(res.exit)}) · <b class="${tone(res.pl)}">${signedUsd(res.pl)}</b>`;
+  }
+  const msg = messages[p.id];
+  const isArmed = armed === p.id;
+  return `<div class="prop ${done ? "done" : ""}">
+    <div class="prop-top">
+      <div><div class="prop-sym">${esc(p.symbol)}</div>
+        <div class="prop-sub">Buy ${p.qty} near ${usd(p.entry)} · broke out ${esc(p.entry_time)}</div></div>
+      <span class="chip" style="height:24px;padding:0 10px;font-size:11.5px;white-space:nowrap;flex:none"><span class="dot ${statusDot[p.status] || ""}"></span>${statusText[p.status] || esc(p.status)}</span>
+    </div>
+    <div class="prop-plan">
+      <div>Stop<b>${usd(p.stop)}</b></div>
+      <div>Target<b>${usd(p.target)}</b></div>
+      <div>Max loss<b>${usd(p.max_loss, 0)}</b></div>
+    </div>
+    <div>
+      <div class="odds" role="img" aria-label="Replays: target first ${pctx(o.target)}, neither ${pctx(o.neither)}, stop first ${pctx(o.stop)}">
+        <span class="t" style="width:${o.target * 100}%"></span><span class="n" style="width:${o.neither * 100}%"></span><span class="s" style="width:${o.stop * 100}%"></span>
+      </div>
+      <div class="odds-key"><span><i style="background:var(--up-mark)"></i>Target first ${pctx(o.target)}</span><span><i style="background:var(--pill-cash)"></i>Neither ${pctx(o.neither)}</span><span><i style="background:var(--down-mark)"></i>Stop first ${pctx(o.stop)}</span></div>
+    </div>
+    <div class="prop-note">Bars above: the rest of today replayed 10,000 times from the last ${o.sessions} days. On those ${h.sessions} days the same setup fired ${h.triggered} times: ${h.target} hit the target, ${h.stop} the stop, ${h.close} neither (avg ${h.avg_R >= 0 ? "+" : ""}${h.avg_R.toFixed(2)}R).<br>${esc(p.verdict.split(":")[0])}.</div>
+    ${outcome ? `<div class="prop-note" style="color:var(--text-1)">${outcome}</div>` : ""}
+    ${p.note ? `<div class="prop-note">${esc(p.note)}</div>` : ""}
+    ${!done ? `<div class="prop-actions">
+      <button class="btn approve ${isArmed ? "armed" : ""}" data-act="approve" data-id="${esc(p.id)}" ${busy ? "disabled" : ""}>${isArmed ? `Confirm: buy ${p.qty} ${esc(p.symbol)}` : "Approve"}</button>
+      <button class="btn deny" data-act="deny" data-id="${esc(p.id)}" ${busy ? "disabled" : ""}>Deny</button>
+    </div>` : ""}
+    ${msg ? `<div class="msg ${msg.ok ? "ok" : "bad"}">${esc(msg.text)}</div>` : ""}
+  </div>`;
+}
+
+function renderApprovals() {
+  const a = appr, el = $("approvals"), lim = $("appr-limits");
+  if (!a) return;
+  if (a.error) { el.innerHTML = errBox(a); lim.innerHTML = ""; return; }
+  const L = a.limits;
+  lim.innerHTML = `<span class="chip">${L.trades} of ${L.max_trades} trades today</span>
+    <span class="chip"><span class="dot ${L.day_pl < 0 ? "down" : L.day_pl > 0 ? "up" : ""}"></span>${signedUsd(L.day_pl)} today · stops at −$${L.max_daily_loss}</span>`;
+  const banner = a.dry_run ? `<div class="banner">Test run: these were built from a past session. Approving here sends no order.</div>` : "";
+  if (!a.enabled) { el.innerHTML = `<div class="empty">Turned off in config.py (APPROVALS_ENABLED).</div>`; return; }
+  if (a.status === "none" || a.status === "waiting") {
+    el.innerHTML = banner + `<div class="empty">Nothing yet today. At ${hm(a.scan_time)} ET on market days it scans every US stock for opening-range breakouts and lists the best few here, each sized so the stop loses about $${L.max_loss}. You'll get a Discord ping.</div>`;
+    return;
+  }
+  if (a.status === "scanning") { el.innerHTML = banner + `<div class="empty">${esc(a.note || "Scanning…")}</div>`; return; }
+  if (a.status === "failed") { el.innerHTML = banner + `<div class="error">${esc(a.note)}</div>`; return; }
+  const props = a.proposals || [];
+  el.innerHTML = banner + (props.length ? `<div class="proposals">${props.map((p) => propCard(p, a)).join("")}</div>` : `<div class="empty">No breakout had an edge today. Nothing to approve.</div>`)
+    + `<div class="hint" style="margin-top:12px">${esc(a.note || "")} Approve by ${hm(a.last_entry)} ET; everything bought is sold by ${hm(a.flat_by)}. The odds come from the stock's own last 60 days and aren't a prediction.</div>`;
+}
+
+async function loadApprovals() {
+  try {
+    const r = await fetch("/api/approvals");
+    if (r.status === 401) { location.href = "/login"; return; }
+    appr = await r.json();
+  } catch (e) { return; }
+  renderApprovals();
+}
+
+$("approvals").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-act]");
+  if (!b || busy) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  if (act === "approve" && armed !== id) {
+    armed = id; clearTimeout(armedTimer);
+    armedTimer = setTimeout(() => { armed = null; renderApprovals(); }, 5000);
+    renderApprovals(); return;
+  }
+  armed = null; clearTimeout(armedTimer); busy = true; renderApprovals();
+  try {
+    const r = await fetch(`/api/approvals/${encodeURIComponent(id)}/${act}`, { method: "POST", headers: { "X-Dashboard": "1" } });
+    const d = await r.json();
+    messages[id] = { ok: d.ok, text: d.message };
+  } catch (e) { messages[id] = { ok: false, text: "Couldn't reach the dashboard server." }; }
+  busy = false; await loadApprovals();
+});
+
 // --- Health ----------------------------------------------------------------
 function renderHealth(h) {
   const el = $("health");
@@ -512,7 +641,9 @@ function renderHealth(h) {
 // --- Refresh loop ----------------------------------------------------------
 async function refresh() {
   try {
-    const d = await (await fetch("/api/summary")).json();
+    const resp = await fetch("/api/summary");
+    if (resp.status === 401) { location.href = "/login"; return; }
+    const d = await resp.json();
     $("updated").textContent = `Updated ${d.updated}`;
     renderOverview(d.account); renderStrategies(d.strategies); renderSignals(d.signals);
     renderHoldings(d.holdings); renderTrades(d.trades); renderOrb(d.orb); renderHealth(d.health);
@@ -520,8 +651,8 @@ async function refresh() {
     $("updated").textContent = "Can't reach the dashboard server. Is it running?";
   }
 }
-refresh(); loadHistory();
-setInterval(refresh, 20000); setInterval(loadHistory, 60000);
+refresh(); loadHistory(); loadApprovals();
+setInterval(refresh, 20000); setInterval(loadHistory, 60000); setInterval(loadApprovals, 10000);
 </script>
 </body>
 </html>
