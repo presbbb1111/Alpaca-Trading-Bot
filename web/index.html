@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trading Dashboard</title>
+<script>
+// Apply the saved theme before the page draws, so it never flashes the wrong one.
+try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23007aff'/><path d='M7 21l6-6 4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <style>
 :root {
@@ -80,6 +84,9 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
 .sub { color: var(--text-3); font-size: 13px; margin-top: 4px; }
 .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.theme-btn { cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.theme-btn svg { width: 14px; height: 14px; flex: none; }
+.theme-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .chip {
   display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px;
@@ -251,6 +258,7 @@ footer { margin-top: 22px; text-align: center; color: var(--text-3); font-size: 
     <div class="header-right">
       <span class="chip" id="market"><span class="dot"></span>Market</span>
       <span class="chip"><span class="dot accent"></span>Paper account</span>
+      <button class="chip theme-btn" id="theme" type="button"></button>
     </div>
   </header>
 
@@ -522,6 +530,26 @@ function renderOrb(o) {
       <td class="num ${r.pl === null ? "" : tone(r.pl)}">${r.pl === null ? "–" : signedUsd(r.pl)}</td>
     </tr>`).join("")}</tbody></table></div>`;
 }
+
+// --- Light / dark ----------------------------------------------------------
+const sunIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
+const moonIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+const systemDark = matchMedia("(prefers-color-scheme: dark)");
+const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? "dark" : "light");
+function drawThemeButton() {
+  const dark = currentTheme() === "dark";
+  const b = $("theme");
+  b.innerHTML = dark ? `${sunIcon}Light` : `${moonIcon}Dark`;
+  b.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+}
+$("theme").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  store.set("theme", next);
+  drawThemeButton();
+});
+systemDark.addEventListener("change", drawThemeButton);
+drawThemeButton();
 
 // --- Trades to approve -----------------------------------------------------
 let appr = null, armed = null, armedTimer = null, busy = false;
