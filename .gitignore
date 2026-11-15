@@ -26,3 +26,6 @@ reviews/
 # Trades you approve: daily state and journal (personal P/L)
 approvals/
 approval_trades.txt
+
+# 10 AM model: stop switch for the live paper test
+tenam/KILL

@@ -1,0 +1,11 @@
+{
+  "ran_at": "2026-11-15T15:11:02",
+  "files": {
+    "config.py": "27ce47554b73cb5c",
+    "strategy.py": "75996aab5b983325",
+    "backtest.py": "83faf4cc2a7cee98",
+    "report.py": "2529a60bcd82b940",
+    "propfirm_sim.py": "ac143457097dd509",
+    "phase3.py": "807656961a46b995"
+  }
+}

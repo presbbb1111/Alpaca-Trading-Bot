@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Starts the 10 AM model's paper forward test (tenam/live_paper.py) at 8:25 AM
+  Central (= 9:25 AM Eastern), Monday to Friday. It waits for the open, trades
+  QQQ until 11:30 ET, closes its trades by 3:55 ET and exits. On holidays and
+  early-close days it exits right away. Create tenam/KILL to stop it.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.presleybarr.tradingbot.tenam</string>
+
+    <!-- caffeinate keeps the Mac awake while it runs (lid open). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/caffeinate</string>
+        <string>-is</string>
+        <string>/Users/presleybarr/trading bot/.venv/bin/python</string>
+        <string>/Users/presleybarr/trading bot/tenam/live_paper.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/presleybarr/trading bot/tenam</string>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/presleybarr/trading bot/tenam/logs/live.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/presleybarr/trading bot/tenam/logs/live.err.log</string>
+</dict>
+</plist>

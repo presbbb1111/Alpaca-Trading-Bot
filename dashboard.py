@@ -40,6 +40,7 @@ JOBS = {
     "ORB experiment": ("com.presleybarr.tradingbot.orb", "9:15 AM ET, market days"),
     "Daily summary": ("com.presleybarr.tradingbot.summary", "4:15 PM ET, every day"),
     "Trades to approve": ("com.presleybarr.tradingbot.approvals", "9:20 AM ET, scan at 10:15, market days"),
+    "10 AM model (paper test)": ("com.presleybarr.tradingbot.tenam", "9:25 AM ET, weekdays"),
 }
 
 app = Flask(__name__, static_folder=str(BOT_DIR / "web"), static_url_path="")
@@ -281,6 +282,7 @@ def health_section():
         "Daily bot": last_log_time(logs / "bot.log", r"Running on (?!.*dry run)"),
         "ORB experiment": last_log_time(logs / "orb.log", r"Live run for"),
         "Trades to approve": last_log_time(logs / "approvals.log", r"Live run for"),
+        "10 AM model (paper test)": last_log_time(BOT_DIR / "tenam" / "logs" / "live.log", r"Starting for .*account \w+$"),
         "Daily summary": (to_et(datetime.fromtimestamp((logs / "summary.out.log").stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S"))
                           if (logs / "summary.out.log").exists() else None),
     }
@@ -296,8 +298,7 @@ def health_section():
         })
     today = datetime.now().strftime("%Y-%m-%d")
     errors = []
-    for log_name in ("bot.log", "orb.log", "approvals.log"):
-        path = logs / log_name
+    for path in [logs / n for n in ("bot.log", "orb.log", "approvals.log")] + [BOT_DIR / "tenam" / "logs" / "live.log"]:
         if path.exists():
             errors += [line[20:180] for line in path.read_text().splitlines()[-3000:]
                        if line.startswith(today) and " ERROR " in line]
