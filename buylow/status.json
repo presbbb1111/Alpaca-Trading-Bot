@@ -1,0 +1,7 @@
+{
+  "dip": "approved",
+  "grid": "approved",
+  "stretch": "denied",
+  "decided": "2026-11-16",
+  "budget": {"dip": 2500, "grid": 2500}
+}

@@ -30,6 +30,7 @@ from flask import Flask, jsonify, redirect, request, send_from_directory, sessio
 
 import approvals
 import config
+import experiments
 from bot import BOT_DIR, MARKET_TZ, fetch_prices, get_client, is_crypto, load_positions, previous_close_equity
 from strategies import STRATEGIES, rsi
 
@@ -41,6 +42,7 @@ JOBS = {
     "Daily summary": ("com.presleybarr.tradingbot.summary", "4:15 PM ET, every day"),
     "Trades to approve": ("com.presleybarr.tradingbot.approvals", "9:20 AM ET, scan at 10:15, market days"),
     "10 AM model (paper test)": ("com.presleybarr.tradingbot.tenam", "9:25 AM ET, weekdays"),
+    "Buy low: dip + ladder": ("com.presleybarr.tradingbot.buylow", "9:25 AM ET to the close, weekdays"),
 }
 
 app = Flask(__name__, static_folder=str(BOT_DIR / "web"), static_url_path="")
@@ -283,6 +285,7 @@ def health_section():
         "ORB experiment": last_log_time(logs / "orb.log", r"Live run for"),
         "Trades to approve": last_log_time(logs / "approvals.log", r"Live run for"),
         "10 AM model (paper test)": last_log_time(BOT_DIR / "tenam" / "logs" / "live.log", r"Starting for .*account \w+$"),
+        "Buy low: dip + ladder": last_log_time(BOT_DIR / "buylow" / "logs" / "live.log", r"Starting for .*account \w+$"),
         "Daily summary": (to_et(datetime.fromtimestamp((logs / "summary.out.log").stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S"))
                           if (logs / "summary.out.log").exists() else None),
     }
@@ -298,7 +301,7 @@ def health_section():
         })
     today = datetime.now().strftime("%Y-%m-%d")
     errors = []
-    for path in [logs / n for n in ("bot.log", "orb.log", "approvals.log")] + [BOT_DIR / "tenam" / "logs" / "live.log"]:
+    for path in [logs / n for n in ("bot.log", "orb.log", "approvals.log")] + [BOT_DIR / d / "logs" / "live.log" for d in ("tenam", "buylow")]:
         if path.exists():
             errors += [line[20:180] for line in path.read_text().splitlines()[-3000:]
                        if line.startswith(today) and " ERROR " in line]
@@ -426,6 +429,8 @@ def index():
 
 @app.get("/api/summary")
 def summary():
+    health = safe(health_section)
+    loaded = {JOBS[j["name"]][0] for j in health.get("jobs", []) if j["loaded"]}
     return jsonify({
         "updated": datetime.now(MARKET_TZ).strftime("%I:%M:%S %p ET"),
         "account": safe(account_section),
@@ -434,7 +439,8 @@ def summary():
         "signals": safe(signals_section),
         "trades": safe(lambda: parse_journal(BOT_DIR / "trades.txt")),
         "orb": safe(orb_section),
-        "health": safe(health_section),
+        "health": health,
+        "experiments": safe(lambda: experiments.experiments_section(loaded)),
     })
 
 

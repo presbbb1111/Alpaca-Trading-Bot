@@ -1,0 +1,89 @@
+{
+  "dip": {
+    "dev": {
+      "trades": 602,
+      "win rate": "65%",
+      "avg per trade": "+0.23%",
+      "profit/loss": "$+810",
+      "return": "+48.6%",
+      "a year": "+8.3%",
+      "worst drop": "-29.2%",
+      "days invested": "79%"
+    },
+    "test": {
+      "trades": 440,
+      "win rate": "64%",
+      "avg per trade": "+0.34%",
+      "profit/loss": "$+1,002",
+      "return": "+60.1%",
+      "a year": "+17.9%",
+      "worst drop": "-22.3%",
+      "days invested": "90%"
+    }
+  },
+  "grid": {
+    "dev": {
+      "trades": 192,
+      "win rate": "100%",
+      "avg per trade": "+1.08%",
+      "profit/loss": "$+690",
+      "return": "+41.4%",
+      "a year": "+7.2%",
+      "worst drop": "-27.6%",
+      "days invested": "79%"
+    },
+    "test": {
+      "trades": 159,
+      "win rate": "100%",
+      "avg per trade": "+1.07%",
+      "profit/loss": "$+556",
+      "return": "+33.4%",
+      "a year": "+10.6%",
+      "worst drop": "-14.2%",
+      "days invested": "72%"
+    }
+  },
+  "stretch": {
+    "dev": {
+      "trades": 3755,
+      "win rate": "49%",
+      "avg per trade": "-0.06%",
+      "profit/loss": "$-1,494",
+      "return": "-89.6%",
+      "a year": "-36.5%",
+      "worst drop": "-90.4%"
+    },
+    "test": {
+      "trades": 2199,
+      "win rate": "48%",
+      "avg per trade": "-0.08%",
+      "profit/loss": "$-1,374",
+      "return": "-82.5%",
+      "a year": "-45.6%",
+      "worst drop": "-82.7%"
+    }
+  },
+  "hold": {
+    "dev": {
+      "trades": 0,
+      "win rate": "n/a",
+      "avg per trade": "n/a",
+      "profit/loss": "$+1,552",
+      "return": "+93.1%",
+      "a year": "+14.1%",
+      "worst drop": "-34.2%",
+      "days invested": "100%"
+    },
+    "test": {
+      "trades": 0,
+      "win rate": "n/a",
+      "avg per trade": "n/a",
+      "profit/loss": "$+997",
+      "return": "+59.8%",
+      "a year": "+17.8%",
+      "worst drop": "-19.0%",
+      "days invested": "100%"
+    }
+  },
+  "ran_at": "2026-11-16T10:34:15"
+}

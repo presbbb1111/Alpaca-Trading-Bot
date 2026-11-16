@@ -246,6 +246,24 @@ td.signal-cell { min-width: 170px; }
 .msg { font-size: 12.5px; }
 .msg.ok { color: var(--up); } .msg.bad { color: var(--down); }
 
+/* New strategies */
+.exps { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+@media (max-width: 600px) { .exps { grid-template-columns: 1fr; } }
+.exp { border-radius: 18px; padding: 14px 16px; background: var(--glass-strong); border: 0.5px solid var(--glass-border); display: grid; gap: 10px; min-width: 0; }
+.exp-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px 10px; flex-wrap: wrap; }
+.exp-top > div:first-child { flex: 1 1 200px; min-width: 0; }
+.exp-name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.exp-sub { font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.4; }
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.step-bar { height: 8px; border-radius: 4px; background: var(--segment); overflow: hidden; }
+.step-bar span { display: block; height: 100%; border-radius: 4px; }
+.step-bar .done { background: var(--up-mark); } .step-bar .now { background: var(--accent); } .step-bar .you { background: var(--warn-mark); }
+.step-bar .no { background: var(--down-mark); }
+.step-label { font-size: 11px; color: var(--text-3); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.step-label.on { color: var(--text-1); font-weight: 600; }
+.exp-facts { margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+.exp-note { font-size: 12.5px; color: var(--text-1); }
+
 footer { margin-top: 22px; text-align: center; color: var(--text-3); font-size: 12px; }
 @media (max-width: 600px) { .wrap { padding: 20px 16px 40px; } h1 { font-size: 28px; } .hero-value { font-size: 44px; } }
 </style>
@@ -268,6 +286,11 @@ footer { margin-top: 22px; text-align: center; color: var(--text-3); font-size: 
     <section class="card span-12" aria-label="Trades to approve">
       <div class="card-head"><h2>Trades to approve</h2><div class="limits" id="appr-limits"></div></div>
       <div id="approvals"><div class="empty">Loading…</div></div>
+    </section>
+
+    <section class="card span-12" aria-label="New strategies">
+      <div class="card-head"><h2>New strategies</h2><span class="hint" id="exp-hint"></span></div>
+      <div id="experiments"><div class="empty">Loading…</div></div>
     </section>
 
     <section class="card span-12" id="overview" aria-label="Account overview"></section>
@@ -693,6 +716,40 @@ function renderHealth(h) {
   <div class="hint" style="margin-top:6px">Your Mac has to be awake at these times.</div>`;
 }
 
+// --- New strategies --------------------------------------------------------
+function renderExperiments(x) {
+  const el = $("experiments");
+  if (x.error) { el.innerHTML = errBox(x); return; }
+  $("exp-hint").textContent = `Backtest → your OK → ${x.paper_days} market days on paper → verdict`;
+  el.innerHTML = `<div class="exps">${x.items.map((e) => {
+    const paper = Math.min(e.paper_days / e.paper_target, 1);
+    // How full each stage's bar is: done stages full, the current one partly.
+    const fill = e.denied ? [1, 1, 0, 0]
+      : e.stages.map((_, i) => i < e.stage ? 1 : i > e.stage ? 0 : i === 2 ? Math.max(paper, 0.04) : 0.5);
+    const kind = (i) => e.denied ? (i === 1 ? "no" : "done") : i < e.stage ? "done" : e.stage === 1 ? "you" : "now";
+    const overall = Math.round(100 * Math.min((e.stage + (e.stage === 2 ? paper : e.stage < 4 ? 0.5 : 0)) / 4, 1));
+    let chip = [["warn", "Backtesting"], ["warn", "Needs your OK"], ["accent", `Paper test · day ${e.paper_days} of ${e.paper_target}`],
+                  ["up", "Ready to judge"], ["", "Finished"]][Math.min(e.stage, 4)];
+    if (e.waiting) chip = ["warn", "Not started"];
+    if (e.denied) chip = ["down", "Turned down"];
+    const labels = e.stages.map((s, i) => i === 2 && e.stage >= 2 ? `${s} ${Math.min(e.paper_days, e.paper_target)}/${e.paper_target}` : s);
+    return `<div class="exp">
+      <div class="exp-top">
+        <div><div class="exp-name">${esc(e.name)}</div><div class="exp-sub">${esc(e.about)}</div></div>
+        <span class="chip" style="height:24px;padding:0 10px;font-size:11.5px;white-space:nowrap;flex:none"><span class="dot ${chip[0]}"></span>${chip[1]}</span>
+      </div>
+      <div>
+        <div class="steps" role="img" aria-label="${esc(e.name)}: ${overall}% through backtest, your OK, paper test and verdict">
+          ${fill.map((f, i) => `<div><div class="step-bar"><span class="${kind(i)}" style="width:${f * 100}%"></span></div>
+            <div class="step-label ${i === Math.min(e.stage, 3) ? "on" : ""}">${esc(labels[i])}</div></div>`).join("")}
+        </div>
+      </div>
+      <div class="exp-note">${esc(e.note)} <span class="hint">${e.denied ? "Stopped" : `${overall}% of the way`} · since ${esc(e.started)}</span></div>
+      ${e.facts.length ? `<ul class="exp-facts">${e.facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+    </div>`;
+  }).join("")}</div>`;
+}
+
 // --- Refresh loop ----------------------------------------------------------
 async function refresh() {
   try {
@@ -702,6 +759,7 @@ async function refresh() {
     $("updated").textContent = `Updated ${d.updated}`;
     renderOverview(d.account); renderStrategies(d.strategies); renderSignals(d.signals);
     renderHoldings(d.holdings); renderTrades(d.trades); renderOrb(d.orb); renderHealth(d.health);
+    renderExperiments(d.experiments);
   } catch (e) {
     $("updated").textContent = "Can't reach the dashboard server. Is it running?";
   }

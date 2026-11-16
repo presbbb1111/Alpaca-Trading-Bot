@@ -533,6 +533,21 @@ def report(trading, day):
               + "\n".join(lines), kind="profit" if total >= 0 else "loss")
 
 
+def buylow_symbols():
+    """Symbols the buy-low bot (buylow/live.py) holds for days at a time. A
+    leftover sweep must never sell them, even if an approved trade once used
+    the same symbol."""
+    path = BOT_DIR / "buylow" / "state.json"
+    if not path.exists():
+        return set()
+    state = json.loads(path.read_text())
+    grid = state.get("grid") or {}
+    held = set(state.get("dip", {}).get("held", {}))
+    if any(s.get("qty", 0) > 0 for s in grid.get("slices", [])):
+        held.add("VOO")
+    return held
+
+
 def flatten_leftovers(trading, day):
     """Sell approved positions left over from an earlier day (the Mac slept
     through 3:55). Run before the open, they sell at the opening price."""
@@ -541,7 +556,7 @@ def flatten_leftovers(trading, day):
         old = json.loads(path.read_text())
         if path.stem < str(day) and not old.get("dry_run"):
             symbols |= {p["symbol"] for p in old["proposals"] if p["status"] == "placed"}
-    symbols -= set(config.SYMBOLS)
+    symbols -= set(config.SYMBOLS) | buylow_symbols()
     if not symbols:
         return
     for o in trading.get_orders(GetOrdersRequest(status=QueryOrderStatus.OPEN, limit=500)):

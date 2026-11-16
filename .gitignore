@@ -29,3 +29,8 @@ approval_trades.txt
 
 # 10 AM model: stop switch for the live paper test
 tenam/KILL
+
+# Buy low, sell high: stop switch and live state (personal P/L)
+buylow/KILL
+buylow/state*.json
+buylow/state*.tmp

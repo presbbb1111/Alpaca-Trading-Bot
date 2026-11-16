@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Starts the buy-low paper bot (buylow/live.py) at 8:25 AM Central (= 9:25 AM
+  Eastern), Monday to Friday. At the open it runs the dip-buying sleeve, then
+  keeps the VOO price ladder's orders working until the close and writes the
+  day's results. On holidays it exits right away. Create buylow/KILL to cancel
+  its orders and stop; its holdings stay.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.presleybarr.tradingbot.buylow</string>
+
+    <!-- caffeinate keeps the Mac awake while it runs (lid open). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/caffeinate</string>
+        <string>-is</string>
+        <string>/Users/presleybarr/trading bot/.venv/bin/python</string>
+        <string>/Users/presleybarr/trading bot/buylow/live.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/presleybarr/trading bot/buylow</string>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>25</integer></dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/presleybarr/trading bot/buylow/logs/live.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/presleybarr/trading bot/buylow/logs/live.err.log</string>
+</dict>
+</plist>

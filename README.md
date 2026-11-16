@@ -12,6 +12,7 @@ All times are Eastern.
 - **8:30 AM to 3:55 PM, market days:** `orb_live.py` runs the opening range breakout experiment. It's closed out before 4 PM. Keep the Mac plugged in with the lid open during market hours, or it can sleep through the open or the close.
 - **9:20 AM to 3:55 PM, market days:** `approvals.py` finds trades for me to approve (see below).
 - **9:25 AM to 3:55 PM, weekdays:** `tenam/live_paper.py` paper-tests the 10 AM model on QQQ. Fridays at 5:30 PM, `tenam/weekly_report.py` compares it with the backtest. See [tenam/README.md](tenam/README.md).
+- **9:25 AM to the close, weekdays:** `buylow/live.py` paper-trades two "buy low, sell high" sleeves, $2,500 each: dip buying in uptrends, and a price ladder on VOO. See [buylow/README.md](buylow/README.md).
 - **4:15 PM daily:** `summary.py` posts the day's results to Discord.
 - **Always:** `dashboard.py` serves a dashboard at http://localhost:8050. My phone can open it on the same Wi-Fi at `http://<Mac name>.local:8050` with the password in `.env`.
 
