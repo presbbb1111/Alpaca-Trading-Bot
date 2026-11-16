@@ -352,6 +352,11 @@ def approvals_section():
             if "result" not in p:
                 p["live"] = safe(lambda p=p: approvals.trade_result(client(), p, day))
     pl = sum((p.get("result") or p.get("live") or {}).get("pl", 0.0) or 0.0 for p in placed)
+    pending = [p for p in state["proposals"] if p["status"] == "pending"]
+    if pending:
+        quotes = safe(lambda: pending_quotes(state, pending, placed, pl))
+        for p in pending:
+            p["quote"] = quotes.get(p["id"]) if "error" not in quotes else {"error": quotes["error"]}
     return {
         **state,
         "limits": {"trades": len(placed), "max_trades": config.APPROVAL_MAX_TRADES, "day_pl": round(pl, 2),
@@ -359,6 +364,27 @@ def approvals_section():
         "scan_time": config.APPROVAL_SCAN_TIME, "last_entry": config.APPROVAL_LAST_ENTRY,
         "flat_by": config.APPROVAL_FLAT_BY, "enabled": config.APPROVALS_ENABLED,
     }
+
+
+def pending_quotes(state, pending, placed, pl):
+    """The order Approve would send right now for each waiting trade, priced
+    the same way approvals.approve() prices it. Empty while the market is
+    closed, when Approve refuses anyway."""
+    room = config.APPROVAL_MAX_DAILY_LOSS + min(pl, 0.0)
+    if state.get("dry_run"):
+        quotes = {p["id"]: approvals.quote(p, p["entry"], room) for p in pending}
+    else:
+        trading = client()
+        if not trading.get_clock().is_open:
+            return {}
+        prices = approvals.latest_prices([p["symbol"] for p in pending])
+        buying_power = float(trading.get_account().buying_power)
+        quotes = {p["id"]: approvals.quote(p, prices[p["symbol"]], room, buying_power)
+                  for p in pending if p["symbol"] in prices}
+    if len(placed) >= config.APPROVAL_MAX_TRADES:
+        for q in quotes.values():
+            q.update(qty=0, problem=f"Already {len(placed)} trades today, the daily limit.")
+    return quotes
 
 
 def same_site_post():
@@ -381,7 +407,8 @@ def approvals_action(pid, action):
     day = datetime.now(MARKET_TZ).date()
     try:
         if action == "approve":
-            ok, message = approvals.approve(day, pid, client())
+            shown = (request.get_json(silent=True) or {}).get("qty")
+            ok, message = approvals.approve(day, pid, client(), int(shown) if shown else None)
         else:
             ok, message = approvals.deny(day, pid)
     except Exception as e:

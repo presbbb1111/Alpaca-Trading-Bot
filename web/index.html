@@ -226,7 +226,9 @@ td.signal-cell { min-width: 170px; }
 .prop-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .prop-sym { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
 .prop-sub { font-size: 12.5px; color: var(--text-2); margin-top: 1px; }
-.prop-plan { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.prop-plan { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.prop-plan b.up { color: var(--up); } .prop-plan b.down { color: var(--down); }
+@media (max-width: 440px) { .prop-plan { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .prop-plan div { font-size: 11.5px; color: var(--text-3); }
 .prop-plan b { display: block; font-size: 14.5px; color: var(--text-1); font-weight: 650; font-variant-numeric: tabular-nums; }
 .odds { display: flex; gap: 2px; height: 10px; border-radius: 4px; overflow: hidden; }
@@ -571,18 +573,41 @@ function propCard(p, a) {
     else outcome = `${res.qty} @ ${usd(res.entry_fill)} → ${usd(res.exit_fill)} (${esc(res.exit)}) · <b class="${tone(res.pl)}">${signedUsd(res.pl)}</b>`;
   }
   const msg = messages[p.id];
-  const isArmed = armed === p.id;
+  // What the numbers on the card are based on: the live quote while it waits
+  // (the order Approve would send now), the actual fill once bought, the
+  // scan price otherwise.
+  const q = p.status === "pending" ? p.quote : null;
+  const live = q && !q.error && !q.problem && q.qty > 0;
+  const filled = p.status === "placed" && res && res.filled && !a.dry_run;
+  let sub, qty, basis, lossLabel = "Loss at stop", gainLabel = "Gain at target";
+  if (live) { sub = `Buy ${q.qty} at about ${usd(q.price)} now · broke out at ${usd(p.entry)}, ${esc(p.entry_time)}`; qty = q.qty; basis = q.price; }
+  else if (filled) { sub = `Bought ${res.qty} at ${usd(res.entry_fill)} · broke out at ${usd(p.entry)}, ${esc(p.entry_time)}`; qty = res.qty; basis = res.entry_fill; }
+  else if (p.status === "placed") { sub = `Buying ${p.qty} at the market (last ${usd(p.approved_price)})`; qty = p.qty; basis = p.approved_price; }
+  else { sub = `Broke out at ${usd(p.entry)}, ${esc(p.entry_time)} · ${p.qty} shares at that price`; qty = p.qty; basis = p.entry; }
+  const isArmed = armed === p.id && live;
+  const loss = qty * (basis - p.stop), gain = qty * (p.target - basis);
+  let block = "";
+  if (p.status === "pending") {
+    if (!q) block = "The market is closed, so these are the scan's numbers. Approve re-prices the trade once it's open.";
+    else if (q.error) block = `Couldn't get a live price (${q.error}). Approve still re-prices it before buying.`;
+    else if (q.problem) block = q.problem;
+  }
   return `<div class="prop ${done ? "done" : ""}">
     <div class="prop-top">
       <div><div class="prop-sym">${esc(p.symbol)}</div>
-        <div class="prop-sub">Buy ${p.qty} near ${usd(p.entry)} · broke out ${esc(p.entry_time)}</div></div>
+        <div class="prop-sub">${sub}</div></div>
       <span class="chip" style="height:24px;padding:0 10px;font-size:11.5px;white-space:nowrap;flex:none"><span class="dot ${statusDot[p.status] || ""}"></span>${statusText[p.status] || esc(p.status)}</span>
     </div>
     <div class="prop-plan">
       <div>Stop<b>${usd(p.stop)}</b></div>
       <div>Target<b>${usd(p.target)}</b></div>
-      <div>Max loss<b>${usd(p.max_loss, 0)}</b></div>
+      ${filled && !res.open
+        ? `<div>Sold at<b>${usd(res.exit_fill)}</b></div><div>Result<b class="${tone(res.pl)}">${signedUsd(res.pl)}</b></div>`
+        : `<div>${lossLabel}<b class="down">−${usd(Math.max(loss, 0), 0)}</b></div>
+      <div>${gainLabel}<b class="up">+${usd(Math.max(gain, 0), 0)}</b></div>`}
     </div>
+    ${block ? `<div class="msg bad">${esc(block)}</div>` : ""}
+    ${live || (filled && res.open) ? `<div class="prop-note">The buy and the stop both fill at the market, so a real loss can run a few dollars past this.</div>` : ""}
     <div>
       <div class="odds" role="img" aria-label="Replays: target first ${pctx(o.target)}, neither ${pctx(o.neither)}, stop first ${pctx(o.stop)}">
         <span class="t" style="width:${o.target * 100}%"></span><span class="n" style="width:${o.neither * 100}%"></span><span class="s" style="width:${o.stop * 100}%"></span>
@@ -593,7 +618,7 @@ function propCard(p, a) {
     ${outcome ? `<div class="prop-note" style="color:var(--text-1)">${outcome}</div>` : ""}
     ${p.note ? `<div class="prop-note">${esc(p.note)}</div>` : ""}
     ${!done ? `<div class="prop-actions">
-      <button class="btn approve ${isArmed ? "armed" : ""}" data-act="approve" data-id="${esc(p.id)}" ${busy ? "disabled" : ""}>${isArmed ? `Confirm: buy ${p.qty} ${esc(p.symbol)}` : "Approve"}</button>
+      <button class="btn approve ${isArmed ? "armed" : ""}" data-act="approve" data-id="${esc(p.id)}" data-qty="${live ? q.qty : ""}" ${busy || !live ? "disabled" : ""}>${isArmed ? `Confirm: buy ${q.qty} ${esc(p.symbol)} ≈ ${usd(q.cost, 0)}` : "Approve"}</button>
       <button class="btn deny" data-act="deny" data-id="${esc(p.id)}" ${busy ? "disabled" : ""}>Deny</button>
     </div>` : ""}
     ${msg ? `<div class="msg ${msg.ok ? "ok" : "bad"}">${esc(msg.text)}</div>` : ""}
@@ -640,7 +665,9 @@ $("approvals").addEventListener("click", async (ev) => {
   }
   armed = null; clearTimeout(armedTimer); busy = true; renderApprovals();
   try {
-    const r = await fetch(`/api/approvals/${encodeURIComponent(id)}/${act}`, { method: "POST", headers: { "X-Dashboard": "1" } });
+    const body = act === "approve" ? JSON.stringify({ qty: Number(b.dataset.qty) }) : null;
+    const r = await fetch(`/api/approvals/${encodeURIComponent(id)}/${act}`,
+      { method: "POST", headers: { "X-Dashboard": "1", "Content-Type": "application/json" }, body });
     const d = await r.json();
     messages[id] = { ok: d.ok, text: d.message };
   } catch (e) { messages[id] = { ok: false, text: "Couldn't reach the dashboard server." }; }

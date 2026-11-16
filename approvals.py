@@ -264,6 +264,31 @@ def size(entry, stop, room=None):
     return int(math.floor(min(max_loss / risk, config.APPROVAL_MAX_ORDER / entry))) if risk > 0 else 0
 
 
+def quote(p, price, room, buying_power=None):
+    """What Approve would send at this price. The dashboard shows the same
+    numbers on the card, so the card always says what the order will be.
+    `problem` is set when Approve would refuse; `expire` when it would also
+    take the trade off the list."""
+    q = {"price": price, "qty": 0, "problem": "", "expire": False}
+    if price <= p["stop"]:
+        return {**q, "problem": f"Fell to ${price:,.2f}, through the stop before it was approved.", "expire": True}
+    if price >= p["target"]:
+        return {**q, "problem": f"Already ran to ${price:,.2f}, past the target.", "expire": True}
+    reward_risk = (p["target"] - price) / (price - p["stop"])
+    if reward_risk < config.APPROVAL_MIN_REWARD_RISK:
+        return {**q, "problem": f"{p['symbol']} is at ${price:,.2f}, too close to the target: only {reward_risk:.1f}x the "
+                                f"risk left. It stays on the list in case it pulls back."}
+    if room <= 0:
+        return {**q, "problem": "Today's approved trades are at the daily loss limit. No new trades today."}
+    qty = size(price, p["stop"], room)
+    if buying_power is not None:
+        qty = min(qty, int(buying_power // price))
+    if qty < 1:
+        return {**q, "problem": "Not enough room left today (daily loss limit or buying power) for even one share."}
+    return {**q, "qty": qty, "cost": round(qty * price, 2), "max_loss": round(qty * (price - p["stop"]), 2),
+            "gain": round(qty * (p["target"] - price), 2), "reward_risk": round(reward_risk, 2)}
+
+
 def propose(trading, day, now_flag=(), dry_run=False):
     with locked(day) as st:
         st.update(status="scanning", note="Scanning every US stock for opening-range breakouts…", dry_run=dry_run)
@@ -324,8 +349,10 @@ def find(state, pid):
     return next((p for p in state["proposals"] if p["id"] == pid), None)
 
 
-def approve(day, pid, trading=None):
-    """Place one approved trade. Returns (ok, message)."""
+def approve(day, pid, trading=None, expected_qty=None):
+    """Place one approved trade. Returns (ok, message). `expected_qty` is the
+    share count the card showed when you confirmed; if the price has moved
+    enough to change it, nothing is sent."""
     trading = trading or get_client()
     with locked(day) as st:
         p = find(st, pid)
@@ -355,21 +382,17 @@ def approve(day, pid, trading=None):
             return False, f"The account already holds or has orders in {p['symbol']}."
 
         price = p["entry"] if dry_run else latest_prices([p["symbol"]])[p["symbol"]]
-        if price <= p["stop"]:
-            p.update(status="expired", note=f"Fell to ${price:,.2f}, through the stop before it was approved.")
-            return False, p["note"]
-        if price >= p["target"]:
-            p.update(status="expired", note=f"Already ran to ${price:,.2f}, past the target.")
-            return False, p["note"]
-        reward_risk = (p["target"] - price) / (price - p["stop"])
-        if reward_risk < config.APPROVAL_MIN_REWARD_RISK:
-            return False, (f"{p['symbol']} is at ${price:,.2f}, too close to the target: only {reward_risk:.1f}x the "
-                           f"risk left. It stays on the list in case it pulls back.")
-        qty = size(price, p["stop"], room)
-        if not dry_run:
-            qty = min(qty, int(float(trading.get_account().buying_power) // price))
-        if qty < 1:
-            return False, "Not enough room left today (daily loss limit or buying power) for even one share."
+        q = quote(p, price, room, None if dry_run else float(trading.get_account().buying_power))
+        if q["expire"]:
+            p.update(status="expired", note=q["problem"])
+        if q["problem"]:
+            return False, q["problem"]
+        qty = q["qty"]
+        if expected_qty is not None and qty != expected_qty:
+            # The card showed a different order than the one this price gives.
+            return False, (f"{p['symbol']} moved to ${price:,.2f}, so the order is now {qty} shares (loss at the stop "
+                           f"about {money(q['max_loss'])}), not the {expected_qty} you confirmed. Nothing was sent; "
+                           f"check the card and confirm again.")
 
         client_id = f"appr-{day:%Y%m%d}-{p['symbol']}"
         if dry_run:
